@@ -12,15 +12,15 @@ struct ContentView: View {
                 .tabItem {
                     Label("History", systemImage: "clock")
                 }
-            Button(action: { showAddEntry = true }) {
+            Button(action: { showAddEntry = true }, label: {
                 Label("Add Entry", systemImage: "plus.circle")
-            }
+            })
             .tabItem {
                 Label("Add", systemImage: "plus")
             }
-            Button(action: { showExporter = true }) {
+            Button(action: { showExporter = true }, label: {
                 Label("Export", systemImage: "square.and.arrow.up")
-            }
+            })
             .tabItem {
                 Label("Export", systemImage: "square.and.arrow.up")
             }

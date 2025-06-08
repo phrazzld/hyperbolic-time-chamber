@@ -25,7 +25,7 @@ struct HistoryView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         ForEach(entry.sets) { set in
-                            Text("\(set.reps) reps" + (set.weight != nil ? " @ \(set.weight!)kg" : ""))
+                            Text("\(set.reps) reps" + (set.weight.map { " @ \($0)kg" } ?? ""))
                                 .font(.subheadline)
                         }
                     }

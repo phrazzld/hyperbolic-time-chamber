@@ -1,0 +1,106 @@
+# SwiftLint Configuration for WorkoutTracker
+# Opinionated rules for high code quality and consistency
+
+# Paths to include/exclude
+included:
+  - Sources
+  - WorkoutTracker
+excluded:
+  - build
+  - .build
+  - DerivedData
+
+# Enabled rules - comprehensive set for quality
+opt_in_rules:
+  - array_init
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - empty_collection_literal
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - file_name
+  - first_where
+  - flatmap_over_map_reduce
+  - force_unwrapping  # Prevent force unwrapping
+  - implicit_return
+  - joined_default_parameter
+  - last_where
+  - legacy_random
+  - literal_expression_end_indentation
+  - modifier_order
+  - multiline_arguments
+  - multiline_function_chains
+  - multiline_parameters
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - single_test_class
+  - sorted_first_last
+  - static_operator
+  - strong_iboutlet
+  - toggle_bool
+  - trailing_closure
+  - unneeded_parentheses_in_closure_argument
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_closing_braces
+  - yoda_condition
+
+# Disabled rules that may be too restrictive for this project
+disabled_rules:
+  - todo  # Allow TODO comments for development
+
+# Rule configurations
+line_length:
+  warning: 120
+  error: 150
+
+file_length:
+  warning: 400
+  error: 500
+
+function_body_length:
+  warning: 40
+  error: 60
+
+type_body_length:
+  warning: 300
+  error: 400
+
+cyclomatic_complexity:
+  warning: 8
+  error: 12
+
+nesting:
+  type_level: 2
+  function_level: 3
+
+identifier_name:
+  min_length: 2
+  max_length: 40
+  excluded:
+    - id
+    - vm
+
+# Custom rules
+custom_rules:
+  no_print:
+    name: "No Print Statements"
+    regex: "print\\s*\\("
+    message: "Use proper logging instead of print statements"
+    severity: warning
+    
+  no_force_cast:
+    name: "No Force Casts"
+    regex: "as!"
+    message: "Use safe casting with 'as?' or guard statements"
+    severity: error
+
+# Reporter type
+reporter: "xcode"

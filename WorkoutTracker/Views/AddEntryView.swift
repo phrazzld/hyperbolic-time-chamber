@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Temporary input model for capturing table sets
-fileprivate struct SetInput: Identifiable {
+private struct SetInput: Identifiable {
     let id = UUID()
     var reps: String = ""
     var weight: String = ""
@@ -38,9 +38,9 @@ struct AddEntryView: View {
                     }
                     Button(action: {
                         sets.append(SetInput())
-                    }) {
+                    }, label: {
                         Label("Add Set", systemImage: "plus")
-                    }
+                    })
                 }
             }
             .navigationTitle("Add Exercise")
@@ -48,7 +48,8 @@ struct AddEntryView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         let inputSets = sets.compactMap { input -> ExerciseSet? in
-                            guard let reps = Int(input.reps.trimmingCharacters(in: .whitespaces)), reps > 0 else { return nil }
+                            guard let reps = Int(input.reps.trimmingCharacters(in: .whitespaces)),
+                                  reps > 0 else { return nil }
                             let weight = Double(input.weight.trimmingCharacters(in: .whitespaces))
                             return ExerciseSet(reps: reps, weight: weight)
                         }
