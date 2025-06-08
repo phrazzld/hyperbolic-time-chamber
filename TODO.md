@@ -4,7 +4,7 @@
 
 ### Pre-commit & Build Safety
 - [x] Install and configure SwiftLint with opinionated rules for code quality
-- [ ] Create pre-commit hook that runs SwiftLint and fails on violations
+- [x] Create pre-commit hook that runs SwiftLint and fails on violations
 - [ ] Add pre-commit hook that verifies project builds successfully before commit
 - [ ] Configure git hooks to be automatically installed for new developers
 
