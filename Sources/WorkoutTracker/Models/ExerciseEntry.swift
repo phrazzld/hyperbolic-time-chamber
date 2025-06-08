@@ -1,5 +1,6 @@
 import Foundation
 
+/// Represents a single workout exercise entry with multiple sets
 struct ExerciseEntry: Identifiable, Codable {
     var id = UUID()
     var exerciseName: String
