@@ -1,46 +1,44 @@
 import SwiftUI
 
-/// View that displays exercise entries grouped by day
+/// View that displays exercise entries with timestamps
 struct HistoryView: View {
     @EnvironmentObject var viewModel: WorkoutViewModel
 
-    private var groupedEntries: [Date: [ExerciseEntry]] {
-        Dictionary(grouping: viewModel.entries) { entry in
-            Calendar.current.startOfDay(for: entry.date)
-        }
-    }
-
-    private var sortedDates: [Date] {
-        groupedEntries.keys.sorted(by: >)
+    private var sortedEntries: [ExerciseEntry] {
+        viewModel.entries.sorted { $0.date > $1.date }
     }
 
     var body: some View {
         NavigationView {
             List {
-                ForEach(sortedDates, id: \.self) { date in
-                    Section(header: Text(date, style: .date)) {
-                        ForEach(groupedEntries[date]!) { entry in
-                            VStack(alignment: .leading) {
-                                Text(entry.exerciseName)
-                                    .font(.headline)
-                                ForEach(entry.sets) { set in
-                                    Text("\(set.reps) reps" + (set.weight != nil ? " @ \(set.weight!)kg" : ""))
-                                        .font(.subheadline)
-                                }
-                            }
+                ForEach(sortedEntries) { entry in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(entry.exerciseName)
+                                .font(.headline)
+                            Spacer()
+                            Text(entry.date, style: .time)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
-                        .onDelete { offsets in
-                            var global = viewModel.entries
-                            let entriesForDate = groupedEntries[date]!
-                            for index in offsets {
-                                if let idx = global.firstIndex(where: { $0.id == entriesForDate[index].id }) {
-                                    global.remove(at: idx)
-                                }
-                            }
-                            viewModel.entries = global
-                            viewModel.save()
+                        Text(entry.date, style: .date)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        ForEach(entry.sets) { set in
+                            Text("\(set.reps) reps" + (set.weight != nil ? " @ \(set.weight!)kg" : ""))
+                                .font(.subheadline)
                         }
                     }
+                    .padding(.vertical, 2)
+                }
+                .onDelete { offsets in
+                    let entriesToDelete = offsets.map { sortedEntries[$0] }
+                    for entry in entriesToDelete {
+                        if let index = viewModel.entries.firstIndex(where: { $0.id == entry.id }) {
+                            viewModel.entries.remove(at: index)
+                        }
+                    }
+                    viewModel.save()
                 }
             }
             #if canImport(UIKit)
