@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Start for New Developers
+
+### 1. Setup Quality Gates
+```bash
+# Install git hooks and SwiftLint (required for all contributors)
+./scripts/setup-git-hooks.sh
+```
+
+### 2. Development Workflow
+```bash
+# Fast rebuild and relaunch in simulator
+./run.sh
+
+# Quick relaunch without rebuilding (if no code changes)
+./launch.sh
+```
+
 ## Build & Run Commands
 
 ### iOS Simulator (Xcode 15+)
@@ -54,3 +71,29 @@ This is a SwiftUI-based iOS workout tracker using Swift Package Manager with a c
 - `DataStore.swift`: All persistence logic isolated here
 - `WorkoutViewModel.swift`: Central state management
 - `ContentView.swift`: Main tab interface and modal coordination
+
+## Quality Gates
+
+This project enforces code quality through automated checks:
+
+### Pre-commit Hooks
+- **SwiftLint**: Enforces Swift style guidelines and catches common issues
+- **Compilation Check**: Verifies staged Swift files compile successfully
+- **Fast Execution**: Uses lightweight checks (< 5 seconds) to avoid slowing commits
+
+### Setup for New Team Members
+Run `./scripts/setup-git-hooks.sh` to automatically install all quality gates.
+
+### Manual Quality Checks
+```bash
+# Run SwiftLint manually
+swiftlint
+
+# Auto-fix style violations
+swiftlint --fix
+
+# Test full build
+./run.sh
+```
+
+The quality gates prevent broken code and style violations from entering the repository, ensuring consistent code quality across all contributors.

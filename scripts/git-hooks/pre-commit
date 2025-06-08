@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# Pre-commit hook to run SwiftLint
+# Prevents commits with code quality violations
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo "🔍 Running SwiftLint on staged files..."
+
+# Get list of staged Swift files
+STAGED_SWIFT_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(swift)$' || true)
+
+if [ -z "$STAGED_SWIFT_FILES" ]; then
+    echo -e "${GREEN}✅ No Swift files staged for commit${NC}"
+    exit 0
+fi
+
+echo "📝 Checking files:"
+echo "$STAGED_SWIFT_FILES" | sed 's/^/  - /'
+
+# Check if SwiftLint is available
+if ! command -v swiftlint &> /dev/null; then
+    echo -e "${RED}❌ SwiftLint not found. Please install it first:${NC}"
+    echo "   brew install swiftlint"
+    exit 1
+fi
+
+# Create temporary file for staged content
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf $TEMP_DIR" EXIT
+
+# Copy staged files to temp directory to lint only staged changes
+for FILE in $STAGED_SWIFT_FILES; do
+    TEMP_FILE="$TEMP_DIR/$FILE"
+    mkdir -p "$(dirname "$TEMP_FILE")"
+    git show :$FILE > "$TEMP_FILE"
+done
+
+# Run SwiftLint on staged files
+echo "🏃‍♂️ Running SwiftLint..."
+
+# Run SwiftLint on only the staged files in temp directory
+TEMP_FILES=""
+for FILE in $STAGED_SWIFT_FILES; do
+    TEMP_FILE="$TEMP_DIR/$FILE"
+    TEMP_FILES="$TEMP_FILES $TEMP_FILE"
+done
+
+cd "$TEMP_DIR"
+SWIFTLINT_OUTPUT=$(swiftlint lint $TEMP_FILES --config "$OLDPWD/.swiftlint.yml" 2>&1 || true)
+SWIFTLINT_EXIT_CODE=$?
+
+# Check SwiftLint results
+if ! echo "$SWIFTLINT_OUTPUT" | grep -q "Found 0 violations"; then
+    echo -e "${RED}❌ SwiftLint found violations:${NC}"
+    echo
+    echo "$SWIFTLINT_OUTPUT"
+    echo
+    echo -e "${YELLOW}💡 Fix these violations before committing:${NC}"
+    echo "   - Run 'swiftlint --fix' to auto-correct simple violations"
+    echo "   - Run 'swiftlint' to see all violations"
+    echo "   - Stage your fixes and try committing again"
+    echo
+    exit 1
+fi
+
+echo -e "${GREEN}✅ SwiftLint passed! No violations found.${NC}"
+
+# Verify Swift files compile successfully  
+echo "🔨 Verifying Swift compilation..."
+cd "$OLDPWD"
+
+# Fast syntax check using Swift compiler on staged files only
+COMPILATION_ERRORS=""
+for FILE in $STAGED_SWIFT_FILES; do
+    if [ -f "$FILE" ]; then
+        echo "  Checking $FILE..."
+        SWIFT_OUTPUT=$(swift -frontend -parse "$FILE" 2>&1)
+        SWIFT_EXIT_CODE=$?
+        
+        if [ $SWIFT_EXIT_CODE -ne 0 ]; then
+            COMPILATION_ERRORS="$COMPILATION_ERRORS\n$FILE:\n$SWIFT_OUTPUT\n"
+        fi
+    fi
+done
+
+if [ -z "$COMPILATION_ERRORS" ]; then
+    echo -e "${GREEN}✅ All staged Swift files compile successfully!${NC}"
+    exit 0
+else
+    echo -e "${RED}❌ Compilation errors found in staged files:${NC}"
+    echo -e "$COMPILATION_ERRORS"
+    echo
+    echo -e "${YELLOW}💡 Fix compilation errors before committing:${NC}"
+    echo "   - Check syntax errors in your staged changes"  
+    echo "   - Run './run.sh' to test the full build locally"
+    echo "   - Stage your fixes and try committing again"
+    echo
+    exit 1
+fi
