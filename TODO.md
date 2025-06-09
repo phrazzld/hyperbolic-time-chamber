@@ -17,7 +17,7 @@
 
 ### Critical User Flow Protection
 - [x] Create UI test target for integration testing
-- [ ] Write UI test for "Add new workout entry" complete flow
+- [x] Write UI test for "Add new workout entry" complete flow
 - [ ] Write UI test for "View and delete workout from history" flow
 - [ ] Write UI test for "Export workout data" functionality
 - [ ] Add UI test execution to pre-push hook (with timeout for speed)
