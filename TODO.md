@@ -10,7 +10,7 @@
 
 ### Core Unit Testing Foundation  
 - [x] Add XCTest target to project if not already present
-- [ ] Write unit tests for `DataStore` save/load operations and error handling
+- [x] Write unit tests for `DataStore` save/load operations and error handling
 - [ ] Write unit tests for `WorkoutViewModel` add/delete/update operations
 - [ ] Write unit tests for `ExerciseEntry` and `ExerciseSet` model validation
 - [ ] Add pre-push hook that runs all unit tests and blocks push on failure

@@ -3,9 +3,10 @@ import Foundation
 /// ViewModel for managing workout entries and persistence
 class WorkoutViewModel: ObservableObject {
     @Published var entries: [ExerciseEntry] = []
-    private let dataStore = DataStore()
+    private let dataStore: DataStore
 
-    init() {
+    init(dataStore: DataStore = DataStore()) {
+        self.dataStore = dataStore
         entries = dataStore.load()
     }
 
