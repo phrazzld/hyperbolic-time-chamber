@@ -20,7 +20,7 @@
 - [x] Write UI test for "Add new workout entry" complete flow
 - [x] Write UI test for "View and delete workout from history" flow
 - [x] Write UI test for "Export workout data" functionality
-- [ ] Add UI test execution to pre-push hook (with timeout for speed)
+- [x] Add UI test execution to pre-push hook (with timeout for speed)
 
 ## 🚀 Phase 2: CI/CD & Automation (Medium Priority)
 
