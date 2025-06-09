@@ -5,8 +5,8 @@
 ### Pre-commit & Build Safety
 - [x] Install and configure SwiftLint with opinionated rules for code quality
 - [x] Create pre-commit hook that runs SwiftLint and fails on violations
-- [ ] Add pre-commit hook that verifies project builds successfully before commit
-- [ ] Configure git hooks to be automatically installed for new developers
+- [x] Add pre-commit hook that verifies project builds successfully before commit
+- [x] Configure git hooks to be automatically installed for new developers
 
 ### Core Unit Testing Foundation  
 - [ ] Add XCTest target to project if not already present

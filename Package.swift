@@ -16,7 +16,12 @@ let package = Package(
             name: "WorkoutTracker",
             dependencies: [],
             path: "Sources/WorkoutTracker",
-            // The app’s Info.plist is provided via the INFOPLIST_FILE build setting in Xcode or CLI (see README)
+            // The app's Info.plist is provided via the INFOPLIST_FILE build setting in Xcode or CLI (see README)
+        ),
+        .testTarget(
+            name: "WorkoutTrackerTests",
+            dependencies: ["WorkoutTracker"],
+            path: "Tests/WorkoutTrackerTests"
         )
     ]
 )
