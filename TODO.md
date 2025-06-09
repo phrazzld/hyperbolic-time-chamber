@@ -9,7 +9,7 @@
 - [x] Configure git hooks to be automatically installed for new developers
 
 ### Core Unit Testing Foundation  
-- [ ] Add XCTest target to project if not already present
+- [x] Add XCTest target to project if not already present
 - [ ] Write unit tests for `DataStore` save/load operations and error handling
 - [ ] Write unit tests for `WorkoutViewModel` add/delete/update operations
 - [ ] Write unit tests for `ExerciseEntry` and `ExerciseSet` model validation
