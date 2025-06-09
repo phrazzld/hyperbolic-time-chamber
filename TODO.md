@@ -28,7 +28,7 @@
 - [x] Set up GitHub Actions workflow for automated testing on PR
 - [x] Configure CI to run on multiple iOS simulator versions (current + previous)
 - [x] Add automated build verification for both Debug and Release configurations
-- [ ] Set up automated SwiftLint reporting in PR comments
+- [x] Set up automated SwiftLint reporting in PR comments
 
 ### Enhanced Testing Coverage
 - [ ] Add snapshot testing for key UI components (HistoryView, AddEntryView)

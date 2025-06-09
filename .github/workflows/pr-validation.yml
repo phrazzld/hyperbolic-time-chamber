@@ -10,6 +10,10 @@ on:
       - 'Package.swift'
       - '.swiftlint.yml'
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   validate:
     name: Validate - ${{ matrix.name }}
@@ -69,9 +73,154 @@ jobs:
           swift package resolve
 
       - name: Run SwiftLint
+        id: swiftlint
         run: |
           echo "🔍 Running SwiftLint validation..."
+          
+          # Run SwiftLint with GitHub Actions logging for CI output
           swiftlint lint --reporter github-actions-logging
+          swiftlint_exit_code=$?
+          
+          # Capture JSON output for PR comment generation
+          swiftlint lint --reporter json > swiftlint_results.json 2>/dev/null || true
+          
+          # Count violations for summary
+          violation_count=$(cat swiftlint_results.json | jq '. | length' 2>/dev/null || echo "0")
+          echo "violation_count=$violation_count" >> $GITHUB_OUTPUT
+          
+          # Store results file path for next step
+          echo "results_file=swiftlint_results.json" >> $GITHUB_OUTPUT
+          
+          # Exit with original SwiftLint exit code to maintain CI behavior
+          exit $swiftlint_exit_code
+
+      - name: Comment SwiftLint Results
+        if: always() && steps.swiftlint.outputs.violation_count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read SwiftLint results
+            const resultsFile = '${{ steps.swiftlint.outputs.results_file }}';
+            let violations = [];
+            
+            try {
+              const resultsContent = fs.readFileSync(resultsFile, 'utf8');
+              violations = JSON.parse(resultsContent);
+            } catch (error) {
+              console.log('Could not read SwiftLint results:', error.message);
+              return;
+            }
+            
+            if (violations.length === 0) {
+              console.log('No violations found, skipping comment');
+              return;
+            }
+            
+            // Group violations by file for better organization
+            const violationsByFile = {};
+            violations.forEach(violation => {
+              const relativePath = violation.file.replace(process.cwd() + '/', '');
+              if (!violationsByFile[relativePath]) {
+                violationsByFile[relativePath] = [];
+              }
+              violationsByFile[relativePath].push(violation);
+            });
+            
+            // Build comment body
+            let commentBody = `## 🔍 SwiftLint Report\n\n`;
+            commentBody += `Found **${violations.length}** violation${violations.length !== 1 ? 's' : ''} in **${Object.keys(violationsByFile).length}** file${Object.keys(violationsByFile).length !== 1 ? 's' : ''}:\n\n`;
+            
+            // Add violations table for each file
+            Object.entries(violationsByFile).forEach(([file, fileViolations]) => {
+              commentBody += `### \`${file}\`\n\n`;
+              commentBody += `| Line | Severity | Rule | Message |\n`;
+              commentBody += `|------|----------|------|----------|\n`;
+              
+              fileViolations.forEach(violation => {
+                const line = violation.line || 'N/A';
+                const severity = violation.severity === 'Error' ? '🔴 Error' : 
+                               violation.severity === 'Warning' ? '🟡 Warning' : 
+                               `⚪ ${violation.severity}`;
+                const rule = `\`${violation.rule_id}\``;
+                const message = violation.reason.replace(/\|/g, '\\|'); // Escape pipes for table
+                
+                commentBody += `| ${line} | ${severity} | ${rule} | ${message} |\n`;
+              });
+              
+              commentBody += `\n`;
+            });
+            
+            commentBody += `---\n`;
+            commentBody += `💡 **Fix suggestions:**\n`;
+            commentBody += `- Run \`swiftlint --fix\` to auto-fix style issues\n`;
+            commentBody += `- Check [SwiftLint Rules](https://realm.github.io/SwiftLint/rule-directory.html) for detailed guidance\n`;
+            commentBody += `- Environment: **${{ matrix.name }}**\n\n`;
+            commentBody += `<!-- swiftlint-report -->\n`;
+            
+            // Find existing comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('<!-- swiftlint-report -->')
+            );
+            
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+              console.log('Updated existing SwiftLint comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+              console.log('Created new SwiftLint comment');
+            }
+
+      - name: Clean Up SwiftLint Comments
+        if: always() && steps.swiftlint.outputs.violation_count == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Remove old SwiftLint comments when there are no violations
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const swiftlintComments = comments.filter(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('<!-- swiftlint-report -->')
+            );
+            
+            for (const comment of swiftlintComments) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+              });
+              console.log(`Deleted old SwiftLint comment (ID: ${comment.id})`);
+            }
+            
+            if (swiftlintComments.length > 0) {
+              console.log(`Cleaned up ${swiftlintComments.length} old SwiftLint comment(s) - no violations found! ✅`);
+            }
 
       - name: Build Debug Configuration
         run: |
@@ -261,7 +410,7 @@ jobs:
             echo "✅ **All checks passed with ${{ matrix.name }}!**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### ✅ Quality Gates Passed" >> $GITHUB_STEP_SUMMARY
-            echo "- ✅ SwiftLint validation (code quality)" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ SwiftLint validation (code quality with automated PR feedback)" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ Debug build verification (development ready)" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ Release build verification (production ready)" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ Build artifact validation (executables created)" >> $GITHUB_STEP_SUMMARY
@@ -271,6 +420,14 @@ jobs:
             echo "- **Debug Build**: Verified with artifacts and executable" >> $GITHUB_STEP_SUMMARY
             echo "- **Release Build**: Optimized build with performance validation" >> $GITHUB_STEP_SUMMARY
             echo "- **Cross-Config**: Both configurations tested and functional" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔍 SwiftLint Report" >> $GITHUB_STEP_SUMMARY
+            violation_count="${{ steps.swiftlint.outputs.violation_count }}"
+            if [ "$violation_count" = "0" ]; then
+              echo "- **Code Quality**: ✅ No violations found" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Code Quality**: ⚠️ $violation_count violation(s) found (see PR comments)" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔧 Environment Details" >> $GITHUB_STEP_SUMMARY
             echo "- **Environment**: ${{ matrix.name }}**" >> $GITHUB_STEP_SUMMARY
