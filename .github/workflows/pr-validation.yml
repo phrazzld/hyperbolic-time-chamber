@@ -1,0 +1,133 @@
+---
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'Package.swift'
+      - '.swiftlint.yml'
+
+jobs:
+  validate:
+    name: Validate Pull Request
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Install SwiftLint
+        run: |
+          # Install SwiftLint for consistency with local development
+          brew install swiftlint
+
+      - name: Verify Swift version
+        run: |
+          swift --version
+          echo "Swift Package Manager version:"
+          swift package --version
+
+      - name: Resolve Package Dependencies
+        run: |
+          swift package resolve
+
+      - name: Run SwiftLint
+        run: |
+          echo "🔍 Running SwiftLint validation..."
+          swiftlint lint --reporter github-actions-logging
+
+      - name: Build Project
+        run: |
+          echo "🔨 Building project..."
+          swift build
+
+      - name: Run Tests with Timeout
+        run: |
+          echo "🧪 Running comprehensive test suite..."
+          # Use timeout to prevent hanging tests (matching local pre-push hook)
+          timeout 45s swift test --parallel || {
+            exit_code=$?
+            if [ $exit_code -eq 124 ]; then
+              echo "❌ Tests timed out after 45 seconds"
+              echo "This may indicate hanging tests or performance issues"
+              exit 1
+            else
+              echo "❌ Tests failed with exit code: $exit_code"
+              exit $exit_code
+            fi
+          }
+
+      - name: Verify Test Coverage
+        run: |
+          echo "📊 Analyzing test results..."
+          # Run tests again with verbose output to get detailed results
+          swift test 2>&1 | tee test_output.log
+
+          # Extract test count
+          total_tests=$(grep -o "Executed [0-9]* tests" test_output.log | \
+            tail -1 | grep -o "[0-9]*" || echo "0")
+
+          echo "✅ Executed $total_tests tests successfully"
+
+          # Verify we have comprehensive test coverage
+          if [ "$total_tests" -lt 70 ]; then
+            echo "⚠️  Warning: Test count ($total_tests) seems low."
+            echo "Expected 70+ tests."
+            echo "This may indicate missing tests or test discovery issues."
+          fi
+
+          # Clean up
+          rm -f test_output.log
+
+      - name: Build Release Configuration
+        run: |
+          echo "🏗️  Verifying Release build..."
+          swift build -c release
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## PR Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ **All checks passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ SwiftLint validation" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Debug build successful" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Release build successful" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ All tests passing" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Ready to merge!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Validation failed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the logs above and fix any issues." >> \
+              $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "💡 **Common fixes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Run \`swiftlint --fix\` to auto-fix style issues" >> \
+              $GITHUB_STEP_SUMMARY
+            echo "- Run \`swift test\` locally to debug test failures" >> \
+              $GITHUB_STEP_SUMMARY
+            echo "- Run \`swift build\` to check for build issues" >> \
+              $GITHUB_STEP_SUMMARY
+          fi
