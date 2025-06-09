@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Pre-push hook to run unit tests
+# Prevents pushing code that breaks existing tests
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}🧪 Running unit tests before push...${NC}"
+
+# Check if we're pushing to a remote (not just local)
+remote="$1"
+url="$2"
+
+# Skip hook if no remote specified (local operations)
+if [ -z "$remote" ]; then
+    echo -e "${YELLOW}⚠️  No remote specified, skipping tests${NC}"
+    exit 0
+fi
+
+# Run all unit tests
+echo "📋 Executing test suite..."
+
+TEST_OUTPUT=$(swift test 2>&1)
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -eq 0 ]; then
+    # Parse test results for summary
+    TOTAL_TESTS=$(echo "$TEST_OUTPUT" | grep -o "Executed [0-9]* tests" | tail -1 | grep -o "[0-9]*" || echo "0")
+    
+    echo -e "${GREEN}✅ All tests passed! ($TOTAL_TESTS tests executed)${NC}"
+    echo -e "${GREEN}🚀 Safe to push to $remote${NC}"
+    exit 0
+else
+    echo -e "${RED}❌ Unit tests failed!${NC}"
+    echo
+    echo "$TEST_OUTPUT"
+    echo
+    echo -e "${YELLOW}💡 Fix failing tests before pushing:${NC}"
+    echo "   - Run 'swift test' to see detailed test failures"
+    echo "   - Fix the failing tests locally"
+    echo "   - Commit your fixes and try pushing again"
+    echo
+    echo -e "${RED}🛑 Push blocked to prevent breaking the build${NC}"
+    exit 1
+fi

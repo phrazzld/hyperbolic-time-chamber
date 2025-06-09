@@ -72,13 +72,16 @@ done
 echo
 echo -e "${BLUE}🔍 What these hooks do:${NC}"
 echo "  - pre-commit: Runs SwiftLint and compilation checks before each commit"
+echo "  - pre-push: Runs all unit tests before pushing to remote repositories"
 echo "  - Prevents broken code and style violations from entering the repository"
+echo "  - Blocks pushes that would break existing functionality"
 echo "  - Helps maintain consistent code quality across all contributors"
 echo
 echo -e "${YELLOW}💡 Tips:${NC}"
-echo "  - Hooks run automatically on git commit"
-echo "  - Fix any violations and re-commit"
+echo "  - Hooks run automatically on git commit and git push"
+echo "  - Fix any violations and re-commit/re-push"
 echo "  - Run 'swiftlint --fix' to auto-correct style issues"
+echo "  - Run 'swift test' to run unit tests locally"
 echo "  - Use './run.sh' to test builds locally"
 echo
 echo -e "${GREEN}Happy coding! 🚀${NC}"

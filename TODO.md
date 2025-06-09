@@ -13,7 +13,7 @@
 - [x] Write unit tests for `DataStore` save/load operations and error handling
 - [x] Write unit tests for `WorkoutViewModel` add/delete/update operations
 - [x] Write unit tests for `ExerciseEntry` and `ExerciseSet` model validation
-- [ ] Add pre-push hook that runs all unit tests and blocks push on failure
+- [x] Add pre-push hook that runs all unit tests and blocks push on failure
 
 ### Critical User Flow Protection
 - [ ] Create UI test target for integration testing
