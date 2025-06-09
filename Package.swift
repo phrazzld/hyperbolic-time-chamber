@@ -22,6 +22,11 @@ let package = Package(
             name: "WorkoutTrackerTests",
             dependencies: ["WorkoutTracker"],
             path: "Tests/WorkoutTrackerTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerIntegrationTests",
+            dependencies: ["WorkoutTracker"],
+            path: "Tests/WorkoutTrackerIntegrationTests"
         )
     ]
 )

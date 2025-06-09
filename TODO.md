@@ -16,7 +16,7 @@
 - [x] Add pre-push hook that runs all unit tests and blocks push on failure
 
 ### Critical User Flow Protection
-- [ ] Create UI test target for integration testing
+- [x] Create UI test target for integration testing
 - [ ] Write UI test for "Add new workout entry" complete flow
 - [ ] Write UI test for "View and delete workout from history" flow
 - [ ] Write UI test for "Export workout data" functionality
