@@ -1,0 +1,52 @@
+# Code Coverage Configuration for WorkoutTracker
+#
+# This file defines coverage thresholds and strategy for the WorkoutTracker iOS app.
+# It follows a tiered approach focusing on business logic while acknowledging
+# the challenges of testing SwiftUI views.
+
+[coverage:thresholds]
+# Overall project thresholds (conservative baselines)
+min_line_coverage = 12
+min_function_coverage = 45
+
+# Business logic thresholds (high standards for core components)
+min_business_logic_coverage = 90
+
+[coverage:strategy]
+# HIGH PRIORITY (90%+ coverage required):
+# - Models/ - Data structures and business entities
+# - Services/ - Core business logic and data persistence  
+# - ViewModels/ - State management and view logic
+
+# MEDIUM PRIORITY (target 60%+ coverage):
+# - Utilities/ - Helper functions and extensions
+# - Managers/ - Coordinator and service classes
+
+# LOW PRIORITY (UI testing, 0-20% coverage acceptable):
+# - Views/ - SwiftUI views (difficult to test, focus on ViewModels instead)
+# - App.swift - App entry point (minimal logic)
+
+[coverage:quality_gates]
+# Coverage must not decrease below current baselines
+# Business logic components must maintain 90%+ coverage
+# New business logic code should have 95%+ coverage
+# Views are excluded from strict coverage requirements
+
+[coverage:reporting]
+# Generate HTML reports for detailed analysis
+html_output = coverage/html/index.html
+
+# Generate JSON for programmatic analysis
+json_output = coverage/coverage.json
+
+# Generate text summary for CI/CD
+text_output = coverage/coverage-summary.txt
+
+# Generate badge data for README
+badge_output = coverage/coverage-badge.json
+
+[coverage:ci_integration]
+# Fail CI if business logic coverage drops below 90%
+# Warn if overall coverage drops below current baseline
+# Generate reports for all pull requests
+# Archive coverage reports as build artifacts

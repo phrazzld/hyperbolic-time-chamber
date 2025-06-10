@@ -52,3 +52,45 @@ xcrun simctl launch booted com.yourcompany.WorkoutTracker
 - Track arbitrary exercises with multiple sets (reps, optional weight).
 - View exercise history grouped by day.
 - Export all workout data as JSON via Share Sheet.
+
+## Development
+
+### Running Tests
+```bash
+# Run all tests
+swift test
+
+# Run specific test target
+swift test --filter WorkoutTrackerTests
+swift test --filter WorkoutTrackerIntegrationTests
+```
+
+### Test Coverage
+```bash
+# Generate coverage report
+./scripts/generate-coverage.sh
+
+# View detailed HTML report
+open coverage/html/index.html
+```
+
+Current coverage focuses on business logic:
+- **Models & Services**: 95-100% coverage
+- **ViewModels**: 100% coverage  
+- **Overall Project**: 12.26% line coverage, 47% function coverage
+
+See [COVERAGE.md](COVERAGE.md) for detailed coverage information and strategy.
+
+### Code Quality
+The project includes automated quality gates:
+- **SwiftLint**: Enforces code style and best practices
+- **Pre-commit hooks**: Run linting and build verification
+- **Pre-push hooks**: Run complete test suite
+- **CI/CD**: Automated testing and coverage reporting
+
+```bash
+# Manual quality checks
+swiftlint
+swift build
+swift test
+```

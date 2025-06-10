@@ -34,7 +34,7 @@
 - [x] Add snapshot testing for key UI components (HistoryView, AddEntryView)
 - [x] Write integration tests for complete data persistence workflows
 - [x] Add performance tests for large workout datasets (1000+ entries)
-- [ ] Configure test coverage reporting and set minimum thresholds
+- [x] Configure test coverage reporting and set minimum thresholds
 
 ## 🔧 Phase 3: Advanced Quality Improvements (Lower Priority)
 
