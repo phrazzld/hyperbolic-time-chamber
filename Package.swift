@@ -10,7 +10,9 @@ let package = Package(
     products: [
         .executable(name: "WorkoutTracker", targets: ["WorkoutTracker"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.15.0")
+    ],
     targets: [
         .executableTarget(
             name: "WorkoutTracker",
@@ -25,7 +27,10 @@ let package = Package(
         ),
         .testTarget(
             name: "WorkoutTrackerIntegrationTests",
-            dependencies: ["WorkoutTracker"],
+            dependencies: [
+                "WorkoutTracker",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ],
             path: "Tests/WorkoutTrackerIntegrationTests"
         )
     ]

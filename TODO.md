@@ -31,7 +31,7 @@
 - [x] Set up automated SwiftLint reporting in PR comments
 
 ### Enhanced Testing Coverage
-- [ ] Add snapshot testing for key UI components (HistoryView, AddEntryView)
+- [x] Add snapshot testing for key UI components (HistoryView, AddEntryView)
 - [ ] Write integration tests for complete data persistence workflows
 - [ ] Add performance tests for large workout datasets (1000+ entries)
 - [ ] Configure test coverage reporting and set minimum thresholds
