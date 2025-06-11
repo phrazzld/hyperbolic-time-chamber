@@ -5,6 +5,12 @@ import XCTest
 /// at optimal moments for App Store presentation
 final class ScreenshotTests: XCTestCase {
 
+    /// Mock snapshot function for when SnapshotHelper is not available
+    private func snapshot(_ name: String) {
+        // When running without Fastlane, this is a no-op
+        // The SnapshotHelper.swift file provides the real implementation
+    }
+
     var app: XCUIApplication!
 
     override func setUpWithError() throws {
