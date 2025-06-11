@@ -19,7 +19,7 @@ jobs:
         xcode-version: latest-stable
     
     - name: Cache Swift Package Manager
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: .build
         key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.swift') }}
@@ -41,7 +41,7 @@ jobs:
         ./scripts/generate-coverage.sh
     
     - name: Upload Coverage Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-reports
         path: coverage/
@@ -129,7 +129,7 @@ jobs:
         ./scripts/check-dependencies.sh
     
     - name: Upload Security Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-reports
         path: security/
@@ -233,7 +233,7 @@ jobs:
         ./scripts/analyze-complexity.sh
     
     - name: Upload Complexity Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: complexity-reports
         path: complexity/
@@ -307,7 +307,7 @@ jobs:
         ./scripts/generate-docs.sh
     
     - name: Upload Documentation
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: api-documentation
         path: docs/
@@ -382,7 +382,7 @@ jobs:
         ./scripts/check-spelling.sh
     
     - name: Upload Spelling Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: spelling-reports
         path: spelling/
@@ -478,7 +478,7 @@ jobs:
         working-directory: fastlane
     
     - name: Cache iOS Simulators
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/Library/Developer/CoreSimulator/Devices
         key: ${{ runner.os }}-ios-simulators-${{ hashFiles('fastlane/Snapfile') }}
@@ -500,7 +500,7 @@ jobs:
         FASTLANE_EXPLICIT_OPEN_SIMULATOR: 2
     
     - name: Upload Screenshots
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: app-store-screenshots
         path: screenshots/
