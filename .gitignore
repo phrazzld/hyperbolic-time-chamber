@@ -139,3 +139,7 @@ fastlane/certs/
 
 # Fastlane generated UI test helper (will be regenerated)
 Tests/**/SnapshotHelper.swift
+
+# Swift code coverage files
+*.profraw
+*.profdata
