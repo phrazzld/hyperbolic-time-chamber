@@ -265,8 +265,12 @@ jobs:
         run: |
           echo "🧪 Running comprehensive test suite with ${{ matrix.name }}..."
           echo "📱 Supporting iOS ${{ matrix.ios-target }}+ runtime environment"
-          # Use timeout to prevent hanging tests (matching local pre-push hook)
-          timeout 45s swift test --parallel || {
+          
+          # Install GNU timeout for macOS runners
+          brew install coreutils
+          
+          # Use gtimeout to prevent hanging tests (matching local pre-push hook)
+          gtimeout 45s swift test --parallel || {
             exit_code=$?
             if [ $exit_code -eq 124 ]; then
               echo "❌ Tests timed out after 45 seconds with ${{ matrix.name }}"
