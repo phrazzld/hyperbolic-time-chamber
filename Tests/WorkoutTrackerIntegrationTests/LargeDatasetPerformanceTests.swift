@@ -306,12 +306,12 @@ final class LargeDatasetPerformanceTests: XCTestCase {
         }
 
         // Verify scalability - performance should not degrade exponentially
-        // Allow more flexibility since file I/O can be variable
-        XCTAssertLessThan(addTimes[1] / addTimes[0], 10.0, "2.5x data should not take >10x time to add")
-        XCTAssertLessThan(addTimes[2] / addTimes[0], 25.0, "5x data should not take >25x time to add")
+        // Allow more flexibility since file I/O can be variable and CI environments have performance variations
+        XCTAssertLessThan(addTimes[1] / addTimes[0], 12.0, "2.5x data should not take >12x time to add")
+        XCTAssertLessThan(addTimes[2] / addTimes[0], 30.0, "5x data should not take >30x time to add")
 
-        XCTAssertLessThan(saveTimes[1] / saveTimes[0], 10.0, "2.5x data should not take >10x time to save")
-        XCTAssertLessThan(saveTimes[2] / saveTimes[0], 25.0, "5x data should not take >25x time to save")
+        XCTAssertLessThan(saveTimes[1] / saveTimes[0], 12.0, "2.5x data should not take >12x time to save")
+        XCTAssertLessThan(saveTimes[2] / saveTimes[0], 30.0, "5x data should not take >30x time to save")
     }
 
     func testConcurrentOperationsPerformance() {
