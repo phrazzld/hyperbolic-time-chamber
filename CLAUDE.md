@@ -77,15 +77,19 @@ This is a SwiftUI-based iOS workout tracker using Swift Package Manager with a c
 This project enforces code quality through automated checks:
 
 ### Pre-commit Hooks
+- **Package.swift Validation**: Verifies Swift Package Manager syntax and dependency resolution
 - **SwiftLint**: Enforces Swift style guidelines and catches common issues
 - **Compilation Check**: Verifies staged Swift files compile successfully
-- **Fast Execution**: Uses lightweight checks (< 5 seconds) to avoid slowing commits
+- **Fast Execution**: Uses lightweight checks (< 10 seconds) to avoid slowing commits
 
 ### Setup for New Team Members
 Run `./scripts/setup-git-hooks.sh` to automatically install all quality gates.
 
 ### Manual Quality Checks
 ```bash
+# Validate Package.swift syntax
+swift package resolve
+
 # Run SwiftLint manually
 swiftlint
 
@@ -96,4 +100,33 @@ swiftlint --fix
 ./run.sh
 ```
 
-The quality gates prevent broken code and style violations from entering the repository, ensuring consistent code quality across all contributors.
+## Package Management Guidelines
+
+### Package.swift Best Practices
+- **Always validate syntax** before committing with `swift package resolve`
+- **Avoid trailing commas** in target arrays and dependency lists
+- **Use semantic versioning** for external dependencies (e.g., `from: "1.15.0"`)
+- **Group related targets together** for better organization
+- **Test dependency resolution** after any Package.swift changes
+
+### Common Package.swift Issues
+- Missing commas between array elements
+- Trailing commas in target or dependency arrays
+- Invalid target name references
+- Incorrect dependency specifications
+- Missing path specifications for non-standard directory structures
+
+### Troubleshooting Package Issues
+```bash
+# View detailed dependency resolution errors
+swift package resolve
+
+# Show dependency graph
+swift package show-dependencies
+
+# Clean and rebuild package cache
+swift package clean
+swift package resolve
+```
+
+The quality gates prevent broken Package.swift files, code style violations, and compilation errors from entering the repository, ensuring consistent code quality and reliable dependency management across all contributors.
