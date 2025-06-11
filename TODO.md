@@ -1,6 +1,45 @@
 # WorkoutTracker Quality Gates & Improvements
 
-## 🎯 Phase 1: Essential Quality Gates (80/20 High-Impact)
+## 🚨 URGENT: CI Pipeline Fixes (Critical for PR Merge)
+
+### Package.swift Syntax Error Resolution
+- [ ] **Fix trailing comma in Package.swift targets array** 
+  - Remove trailing comma after `WorkoutTrackerIntegrationTests` target (line ~35)
+  - Verify syntax by running `swift package resolve` locally
+  - Ensure `swift package show-dependencies` displays clean dependency graph
+  - Test compilation with `swift build` to confirm no Package.swift issues
+
+### CI Workflow Xcode Version Fix  
+- [ ] **Update Xcode version specification in GitHub Actions workflow**
+  - Change `.github/workflows/ci.yml` Xcode 16.0 reference to 16.1 (available version)
+  - Verify available versions match GitHub Actions runner environment
+  - Test workflow syntax with `gh workflow view` command locally
+  - Confirm all three validation jobs target compatible Xcode versions
+
+### Local Validation & Testing
+- [ ] **Perform comprehensive local validation before push**
+  - Execute `swift package resolve` and verify zero errors
+  - Run `swift test --filter WorkoutTrackerTests` to ensure unit tests pass
+  - Execute `swift build` for both debug and release configurations  
+  - Validate SwiftLint passes with `swiftlint --strict` command
+  - Test pre-commit and pre-push hooks execute successfully
+
+### CI Pipeline Verification
+- [ ] **Push fixes and monitor CI pipeline execution**
+  - Commit Package.swift and workflow fixes in single atomic commit
+  - Push changes and immediately monitor GitHub Actions execution
+  - Verify all 4 validation jobs complete successfully (Xcode 15.4, 16.1, Latest)  
+  - Confirm test-and-coverage job passes with expected test count
+  - Validate screenshot generation job becomes available (not skipped)
+
+### Prevention & Documentation  
+- [ ] **Add Package.swift validation to pre-commit hook**
+  - Modify `.git/hooks/pre-commit` to include `swift package resolve` check
+  - Add Package.swift syntax validation before SwiftLint execution
+  - Test hook with intentionally broken Package.swift to verify catch behavior
+  - Document package management guidelines in CLAUDE.md for future contributors
+
+## 🎯 Phase 1: Essential Quality Gates (80/20 High-Impact) ✅ COMPLETE
 
 ### Pre-commit & Build Safety
 - [x] Install and configure SwiftLint with opinionated rules for code quality
