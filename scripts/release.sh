@@ -5,6 +5,7 @@ set -e
 # Generates release notes, creates git tag, and optionally triggers deployment
 
 VERSION=""
+AUTO_VERSION=false
 DRY_RUN=false
 SKIP_TESTS=false
 DEPLOY=false
@@ -19,6 +20,10 @@ while [[ $# -gt 0 ]]; do
             VERSION="$2"
             shift 2
             ;;
+        --auto-version)
+            AUTO_VERSION=true
+            shift
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
@@ -32,10 +37,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            echo "Usage: $0 --version VERSION [OPTIONS]"
+            echo "Usage: $0 [--version VERSION | --auto-version] [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --version, -v VERSION  Version number (required, e.g., 1.0.0)"
+            echo "  --version, -v VERSION  Version number (e.g., 1.0.0)"
+            echo "  --auto-version         Automatically determine version from conventional commits"
             echo "  --dry-run              Show what would be done without making changes"
             echo "  --skip-tests           Skip running tests before release"
             echo "  --deploy               Trigger deployment after release"
@@ -43,7 +49,8 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Examples:"
             echo "  $0 --version 1.0.0                    # Create release v1.0.0"
-            echo "  $0 --version 1.0.1 --deploy           # Create and deploy v1.0.1"
+            echo "  $0 --auto-version                     # Auto-determine version from commits"
+            echo "  $0 --auto-version --deploy            # Auto-version and deploy"
             echo "  $0 --version 2.0.0 --dry-run          # Preview v2.0.0 release"
             exit 0
             ;;
@@ -55,9 +62,41 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate version
-if [ -z "$VERSION" ]; then
-    echo "❌ Version is required. Use --version VERSION"
+# Determine version
+if [ "$AUTO_VERSION" = true ]; then
+    echo "🔍 Automatically determining version from conventional commits..."
+    
+    # Use the bump-version script to analyze commits and get new version
+    if ! python3 scripts/bump-version.py --dry-run --output-json /tmp/version-analysis.json >/dev/null 2>&1; then
+        echo "❌ Failed to analyze commits for automatic versioning"
+        exit 1
+    fi
+    
+    # Extract new version from JSON output
+    if [ -f "/tmp/version-analysis.json" ]; then
+        VERSION=$(python3 -c "
+import json
+try:
+    with open('/tmp/version-analysis.json', 'r') as f:
+        data = json.load(f)
+    print(data['new_version'])
+except Exception as e:
+    print('0.0.0')
+")
+        rm -f /tmp/version-analysis.json
+        
+        if [ "$VERSION" = "0.0.0" ]; then
+            echo "❌ Failed to extract version from analysis"
+            exit 1
+        fi
+        
+        echo "📋 Automatically determined version: $VERSION"
+    else
+        echo "❌ Version analysis file not found"
+        exit 1
+    fi
+elif [ -z "$VERSION" ]; then
+    echo "❌ Version is required. Use --version VERSION or --auto-version"
     exit 1
 fi
 
@@ -84,10 +123,29 @@ fi
 echo "📋 Release Configuration:"
 echo "  Version: $VERSION"
 echo "  Tag: $TAG_NAME"
+echo "  Auto Version: $AUTO_VERSION"
 echo "  Dry Run: $DRY_RUN"
 echo "  Skip Tests: $SKIP_TESTS"
 echo "  Deploy: $DEPLOY"
 echo ""
+
+# Update version in project files if using auto-version
+if [ "$AUTO_VERSION" = true ] && [ "$DRY_RUN" = false ]; then
+    echo "✏️ Updating project version to $VERSION..."
+    if python3 scripts/bump-version.py --output-json /tmp/version-update.json >/dev/null 2>&1; then
+        echo "✅ Project version updated to $VERSION"
+        rm -f /tmp/version-update.json
+        
+        # Commit the version change
+        git add Sources/WorkoutTracker/Info.plist
+        git commit -m "chore: bump version to $VERSION
+
+Automated version bump based on conventional commits"
+    else
+        echo "❌ Failed to update project version"
+        exit 1
+    fi
+fi
 
 # Run tests unless skipped
 if [ "$SKIP_TESTS" = false ]; then

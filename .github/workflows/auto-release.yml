@@ -1,0 +1,208 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force release even if no version change'
+        required: false
+        type: boolean
+        default: false
+      deploy_testflight:
+        description: 'Deploy to TestFlight'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  analyze-version:
+    name: Analyze Version Changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check-version.outputs.should_release }}
+      new_version: ${{ steps.check-version.outputs.new_version }}
+      current_version: ${{ steps.check-version.outputs.current_version }}
+      bump_type: ${{ steps.check-version.outputs.bump_type }}
+      version_changed: ${{ steps.check-version.outputs.version_changed }}
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Analyze Version Changes
+      id: check-version
+      run: |
+        # Analyze commits for version changes
+        python3 scripts/bump-version.py --dry-run --output-json version-analysis.json
+        
+        # Extract results
+        NEW_VERSION=$(cat version-analysis.json | jq -r '.new_version')
+        CURRENT_VERSION=$(cat version-analysis.json | jq -r '.current_version')
+        BUMP_TYPE=$(cat version-analysis.json | jq -r '.bump_type')
+        VERSION_CHANGED=$(cat version-analysis.json | jq -r '.version_changed')
+        COMMITS_ANALYZED=$(cat version-analysis.json | jq -r '.commits_analyzed')
+        
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+        echo "version_changed=$VERSION_CHANGED" >> $GITHUB_OUTPUT
+        
+        # Determine if we should release
+        SHOULD_RELEASE="false"
+        if [ "$VERSION_CHANGED" = "true" ] || [ "${{ github.event.inputs.force_release }}" = "true" ]; then
+          SHOULD_RELEASE="true"
+        fi
+        echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+        
+        # Display results
+        echo "## 📊 Version Analysis Results"
+        echo "- Current Version: $CURRENT_VERSION"
+        echo "- New Version: $NEW_VERSION"
+        echo "- Bump Type: $BUMP_TYPE"
+        echo "- Commits Analyzed: $COMMITS_ANALYZED"
+        echo "- Version Changed: $VERSION_CHANGED"
+        echo "- Should Release: $SHOULD_RELEASE"
+    
+    - name: Upload Version Analysis
+      uses: actions/upload-artifact@v3
+      with:
+        name: version-analysis
+        path: version-analysis.json
+        retention-days: 30
+
+  auto-release:
+    name: Create Automatic Release
+    runs-on: ubuntu-latest
+    needs: analyze-version
+    if: needs.analyze-version.outputs.should_release == 'true'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+    
+    - name: Update Project Version
+      run: |
+        # Update version in project files
+        python3 scripts/bump-version.py --output-json version-update.json
+        
+        # Commit version changes
+        git add Sources/WorkoutTracker/Info.plist
+        git commit -m "chore: bump version to ${{ needs.analyze-version.outputs.new_version }}
+
+        Automated version bump based on conventional commits
+        
+        - Bump type: ${{ needs.analyze-version.outputs.bump_type }}
+        - Previous version: ${{ needs.analyze-version.outputs.current_version }}"
+        
+        git push origin main
+    
+    - name: Generate Release Notes
+      run: |
+        python3 scripts/generate-release-notes.py \
+          --version "${{ needs.analyze-version.outputs.new_version }}" \
+          --github-format \
+          --output release-notes.md
+    
+    - name: Create Git Tag
+      run: |
+        TAG_NAME="v${{ needs.analyze-version.outputs.new_version }}"
+        
+        # Create annotated tag with release notes
+        git tag -a "$TAG_NAME" -F release-notes.md
+        git push origin "$TAG_NAME"
+    
+    - name: Create GitHub Release
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read release notes
+          const releaseNotes = fs.readFileSync('release-notes.md', 'utf8');
+          
+          // Create release
+          const { data: release } = await github.rest.repos.createRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag_name: 'v${{ needs.analyze-version.outputs.new_version }}',
+            name: 'Release v${{ needs.analyze-version.outputs.new_version }}',
+            body: releaseNotes,
+            draft: false,
+            prerelease: ${{ contains(needs.analyze-version.outputs.new_version, '-') }}
+          });
+          
+          console.log(`✅ Release created: ${release.html_url}`);
+
+  deploy-testflight:
+    name: Deploy to TestFlight
+    runs-on: macos-latest
+    needs: [analyze-version, auto-release]
+    if: |
+      needs.analyze-version.outputs.should_release == 'true' &&
+      (github.event_name == 'push' || github.event.inputs.deploy_testflight == 'true')
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: main  # Use latest main with version updates
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+        working-directory: fastlane
+    
+    - name: Deploy to TestFlight
+      run: |
+        cd fastlane
+        bundle exec fastlane beta
+      env:
+        APP_STORE_CONNECT_API_KEY_PATH: ${{ secrets.APP_STORE_CONNECT_API_KEY_PATH }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+        MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+        MATCH_KEYCHAIN_NAME: ${{ secrets.MATCH_KEYCHAIN_NAME }}
+        MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+        DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+        DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+
+  notify-completion:
+    name: Notify Release Completion
+    runs-on: ubuntu-latest
+    needs: [analyze-version, auto-release, deploy-testflight]
+    if: always() && needs.analyze-version.outputs.should_release == 'true'
+    
+    steps:
+    - name: Release Summary
+      run: |
+        echo "🎉 Automatic Release v${{ needs.analyze-version.outputs.new_version }} completed!"
+        echo ""
+        echo "📊 Release Details:"
+        echo "  • Previous Version: ${{ needs.analyze-version.outputs.current_version }}"
+        echo "  • New Version: ${{ needs.analyze-version.outputs.new_version }}"
+        echo "  • Bump Type: ${{ needs.analyze-version.outputs.bump_type }}"
+        echo "  • Auto Release: ${{ needs.auto-release.result }}"
+        echo "  • TestFlight Deploy: ${{ needs.deploy-testflight.result }}"
+        echo ""
+        echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.analyze-version.outputs.new_version }}"
+        
+        if [ "${{ needs.analyze-version.outputs.bump_type }}" = "major" ]; then
+          echo ""
+          echo "⚠️ This was a MAJOR version bump - review for breaking changes!"
+        fi
