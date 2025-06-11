@@ -201,14 +201,14 @@ jobs:
           
           # Check if vulnerabilities were found
           VULN_COUNT=$(python3 -c "
-          import json
-          try:
-              with open('security/vulnerability-report.json', 'r') as f:
-                  data = json.load(f)
-              print(len(data.get('vulnerabilities', [])))
-          except:
-              print('0')
-          ")
+import json
+try:
+    with open('security/vulnerability-report.json', 'r') as f:
+        data = json.load(f)
+    print(len(data.get('vulnerabilities', [])))
+except:
+    print('0')
+")
           
           if [ "$VULN_COUNT" -gt 0 ]; then
             echo "⚠️ Found $VULN_COUNT vulnerability(ies). Review security reports."
