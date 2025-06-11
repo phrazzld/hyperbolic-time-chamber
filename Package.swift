@@ -17,8 +17,7 @@ let package = Package(
         .executableTarget(
             name: "WorkoutTracker",
             dependencies: [],
-            path: "Sources/WorkoutTracker",
-            // The app's Info.plist is provided via the INFOPLIST_FILE build setting in Xcode or CLI (see README)
+            path: "Sources/WorkoutTracker"
         ),
         .testTarget(
             name: "WorkoutTrackerTests",
@@ -33,12 +32,5 @@ let package = Package(
             ],
             path: "Tests/WorkoutTrackerIntegrationTests"
         )
-        // UI tests excluded from default test run due to timeout issues
-        // Run separately with: swift test --filter WorkoutTrackerUITests
-        // .testTarget(
-        //     name: "WorkoutTrackerUITests",
-        //     dependencies: [],
-        //     path: "Tests/WorkoutTrackerUITests"
-        // )
     ]
 )
