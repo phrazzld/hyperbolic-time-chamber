@@ -239,11 +239,17 @@ final class AddWorkoutEntryFlowTests: XCTestCase {
 
         // Add each workout with different characteristics
         for (index, (exerciseName, workoutDate)) in workouts.enumerated() {
-            let sets = (1...3).map { setIndex in
-                ExerciseSet(
-                    reps: 10 - setIndex,
-                    weight: Double(50 + (index * 10) + setIndex * 5),
-                    notes: "Set \(setIndex) of \(exerciseName)"
+            // Break down complex expression to avoid compiler timeout
+            let sets: [ExerciseSet] = (1...3).compactMap { setIndex in
+                let reps = 10 - setIndex
+                let baseWeight = 50 + (index * 10)
+                let weight = Double(baseWeight + setIndex * 5)
+                let notes = "Set \(setIndex) of \(exerciseName)"
+
+                return ExerciseSet(
+                    reps: reps,
+                    weight: weight,
+                    notes: notes
                 )
             }
 
