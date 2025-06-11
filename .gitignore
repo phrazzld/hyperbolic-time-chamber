@@ -136,3 +136,6 @@ build/fastlane/
 
 # Fastlane match certificate storage
 fastlane/certs/
+
+# Fastlane generated UI test helper (will be regenerated)
+Tests/**/SnapshotHelper.swift
