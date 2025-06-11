@@ -1,0 +1,16 @@
+# Gemfile for WorkoutTracker Fastlane
+# Ensures consistent Ruby dependencies for deployment automation
+
+source "https://rubygems.org"
+
+# Fastlane for iOS app deployment automation
+gem "fastlane", "~> 2.217"
+
+# Development and testing
+group :development, :test do
+  gem "rake"
+  gem "bundler"
+end
+
+# Ruby version constraint
+ruby ">= 2.7.0"

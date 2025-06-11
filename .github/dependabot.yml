@@ -1,0 +1,56 @@
+version: 2
+updates:
+  # Enable version updates for Swift Package Manager
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@phaedrus"
+    assignees:
+      - "@phaedrus"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "security"
+    ignore:
+      # Ignore major version updates for testing dependencies to avoid breaking changes
+      - dependency-name: "swift-snapshot-testing"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "xctest-dynamic-overlay"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Group related test dependencies together
+      test-dependencies:
+        patterns:
+          - "*snapshot-testing*"
+          - "*xctest*"
+          - "*test*"
+      # Group Point-Free dependencies
+      pointfree-dependencies:
+        patterns:
+          - "swift-custom-dump"
+          - "swift-snapshot-testing"
+          - "xctest-dynamic-overlay"
+    
+  # Monitor GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "ci"
+      - "dependencies"

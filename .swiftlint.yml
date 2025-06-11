@@ -9,6 +9,7 @@ excluded:
   - build
   - .build
   - DerivedData
+  - Tests/WorkoutTrackerUITests  # UI tests with third-party Fastlane generated code
 
 # Enabled rules - comprehensive set for quality
 opt_in_rules:

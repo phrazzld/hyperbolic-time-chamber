@@ -8,7 +8,7 @@ import re
 import subprocess
 import json
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Tuple, Optional
 from pathlib import Path
 
@@ -179,7 +179,7 @@ class ReleaseNotesGenerator:
             'categories': list(self.categorized_commits.keys()),
             'commit_counts': {k: len(v) for k, v in self.categorized_commits.items()},
             'breaking_changes': len(self.breaking_changes),
-            'generated_at': datetime.utcnow().isoformat() + 'Z'
+            'generated_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
 
 

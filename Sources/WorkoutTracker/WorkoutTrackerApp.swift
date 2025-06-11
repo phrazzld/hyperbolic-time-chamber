@@ -9,6 +9,10 @@ struct WorkoutTrackerApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(viewModel)
+                .onAppear {
+                    // Populate with demo data for screenshots
+                    DemoDataService.populateWithDemoDataIfNeeded(viewModel)
+                }
         }
     }
 }

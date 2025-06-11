@@ -32,6 +32,11 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ],
             path: "Tests/WorkoutTrackerIntegrationTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerUITests",
+            dependencies: [],
+            path: "Tests/WorkoutTrackerUITests"
         )
     ]
 )

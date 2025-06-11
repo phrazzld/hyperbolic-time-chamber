@@ -1,0 +1,321 @@
+name: Deploy to TestFlight
+
+on:
+  # Manual deployment trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+        - beta
+        - internal
+      notify_testers:
+        description: 'Notify external testers'
+        required: false
+        default: false
+        type: boolean
+      changelog:
+        description: 'Custom changelog (optional)'
+        required: false
+        default: ''
+        type: string
+
+  # Automatic deployment on release tags
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'beta-*'
+
+jobs:
+  deploy:
+    name: Deploy to TestFlight
+    runs-on: macos-latest
+    
+    environment: 
+      name: testflight
+      url: https://appstoreconnect.apple.com
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for changelog generation
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    
+    - name: Cache Swift Package Manager
+      uses: actions/cache@v3
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.swift') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+    
+    - name: Install Ruby and Bundler
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.1'
+        bundler-cache: true
+        working-directory: fastlane
+    
+    - name: Install Fastlane
+      run: |
+        gem install fastlane
+        fastlane --version
+    
+    - name: Verify Project Configuration
+      run: |
+        echo "Verifying project structure..."
+        ls -la
+        
+        # Check if we have required files
+        if [ ! -f "Package.swift" ]; then
+          echo "❌ Package.swift not found"
+          exit 1
+        fi
+        
+        if [ ! -d "fastlane" ]; then
+          echo "❌ fastlane directory not found"
+          exit 1
+        fi
+        
+        echo "✅ Project structure verified"
+    
+    - name: Setup App Store Connect API Key
+      env:
+        APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+        APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+      run: |
+        # Create API key file for App Store Connect
+        echo "Setting up App Store Connect API key..."
+        mkdir -p ~/.appstoreconnect/private_keys
+        echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_$APP_STORE_CONNECT_API_KEY_ID.p8
+        
+        # Set environment variable for Fastlane
+        echo "APP_STORE_CONNECT_API_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_$APP_STORE_CONNECT_API_KEY_ID.p8" >> $GITHUB_ENV
+        
+        echo "✅ App Store Connect API key configured"
+    
+    - name: Setup Certificates and Provisioning Profiles
+      env:
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+        DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        MATCH_KEYCHAIN_NAME: "fastlane_tmp_keychain"
+        MATCH_KEYCHAIN_PASSWORD: "temp_password_for_ci"
+      run: |
+        echo "Setting up certificates and provisioning profiles..."
+        
+        # Verify required secrets are present
+        if [ -z "$TEAM_ID" ]; then
+          echo "❌ TEAM_ID secret not configured"
+          exit 1
+        fi
+        
+        if [ -z "$APPLE_ID" ]; then
+          echo "❌ APPLE_ID secret not configured"
+          exit 1
+        fi
+        
+        # Check if using match or manual certificate management
+        if [ -n "$MATCH_GIT_URL" ]; then
+          echo "📱 Using fastlane match for certificate management"
+        else
+          echo "🔐 Using manual certificate management"
+          
+          if [ -z "$DISTRIBUTION_CERTIFICATE_P12_BASE64" ] || [ -z "$PROVISIONING_PROFILE_BASE64" ]; then
+            echo "❌ Manual certificate management requires DISTRIBUTION_CERTIFICATE_P12_BASE64 and PROVISIONING_PROFILE_BASE64"
+            echo "💡 Consider setting up fastlane match for easier certificate management"
+            exit 1
+          fi
+        fi
+        
+        echo "✅ Certificate configuration verified"
+    
+    - name: Determine Deployment Configuration
+      id: config
+      run: |
+        # Determine deployment type based on trigger
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Manual deployment
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          NOTIFY_TESTERS="${{ github.event.inputs.notify_testers }}"
+          CUSTOM_CHANGELOG="${{ github.event.inputs.changelog }}"
+        else
+          # Tag-based deployment
+          if [[ "${{ github.ref }}" == refs/tags/beta-* ]]; then
+            ENVIRONMENT="beta"
+            NOTIFY_TESTERS="false"
+          else
+            ENVIRONMENT="beta"
+            NOTIFY_TESTERS="false"
+          fi
+          CUSTOM_CHANGELOG=""
+        fi
+        
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        echo "notify_testers=$NOTIFY_TESTERS" >> $GITHUB_OUTPUT
+        echo "custom_changelog=$CUSTOM_CHANGELOG" >> $GITHUB_OUTPUT
+        
+        echo "🚀 Deployment Configuration:"
+        echo "  Environment: $ENVIRONMENT"
+        echo "  Notify Testers: $NOTIFY_TESTERS"
+        echo "  Custom Changelog: ${CUSTOM_CHANGELOG:-'(auto-generated)'}"
+    
+    - name: Run Pre-deployment Tests
+      run: |
+        echo "🧪 Running pre-deployment validation..."
+        
+        # Run basic build check
+        swift build
+        
+        # Run critical tests (if they exist and are fast)
+        if [ -d "Tests" ]; then
+          echo "Running critical test suite..."
+          swift test --filter WorkoutTrackerTests || {
+            echo "❌ Critical tests failed - aborting deployment"
+            exit 1
+          }
+        fi
+        
+        echo "✅ Pre-deployment validation passed"
+    
+    - name: Deploy to TestFlight
+      env:
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+        DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+        DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+        MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        MATCH_KEYCHAIN_NAME: "fastlane_tmp_keychain"
+        MATCH_KEYCHAIN_PASSWORD: "temp_password_for_ci"
+        CI: "true"
+        ENVIRONMENT: ${{ steps.config.outputs.environment }}
+        NOTIFY_TESTERS: ${{ steps.config.outputs.notify_testers }}
+        CUSTOM_CHANGELOG: ${{ steps.config.outputs.custom_changelog }}
+      run: |
+        echo "🚀 Starting TestFlight deployment..."
+        
+        cd fastlane
+        
+        # Set custom changelog if provided
+        if [ -n "$CUSTOM_CHANGELOG" ]; then
+          echo "Using custom changelog: $CUSTOM_CHANGELOG"
+          export FASTLANE_CHANGELOG="$CUSTOM_CHANGELOG"
+        fi
+        
+        # Run fastlane deployment
+        fastlane beta
+        
+        echo "✅ TestFlight deployment completed successfully"
+    
+    - name: Upload Build Artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: |
+          build/fastlane/
+          fastlane/logs/
+        retention-days: 30
+    
+    - name: Cleanup Sensitive Data
+      if: always()
+      run: |
+        echo "🧹 Cleaning up sensitive data..."
+        
+        # Remove API key
+        rm -f ~/.appstoreconnect/private_keys/* 2>/dev/null || true
+        
+        # Remove temporary certificates
+        find /tmp -name "*.p12" -delete 2>/dev/null || true
+        find /tmp -name "*.mobileprovision" -delete 2>/dev/null || true
+        
+        # Remove keychain
+        security delete-keychain "fastlane_tmp_keychain" 2>/dev/null || true
+        
+        echo "✅ Cleanup completed"
+    
+    - name: Create GitHub Release (for version tags)
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: WorkoutTracker ${{ github.ref }}
+        body: |
+          🚀 **WorkoutTracker Release**
+          
+          This version has been automatically deployed to TestFlight for beta testing.
+          
+          **Changes in this release:**
+          ${{ steps.config.outputs.custom_changelog || 'See commit history for detailed changes.' }}
+          
+          **TestFlight Information:**
+          - Build Number: ${{ env.BUILD_NUMBER || 'Auto-generated' }}
+          - Available to internal testers immediately
+          - External testers will be notified based on configuration
+          
+          **Testing Instructions:**
+          1. Install TestFlight app from the App Store
+          2. Accept the TestFlight invitation (check email)
+          3. Install and test the WorkoutTracker beta
+          4. Provide feedback through TestFlight or GitHub issues
+        draft: false
+        prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc') }}
+    
+    - name: Notify Deployment Success
+      if: success()
+      run: |
+        echo "🎉 Deployment Success!"
+        echo ""
+        echo "📱 WorkoutTracker has been successfully deployed to TestFlight"
+        echo "🔗 Check App Store Connect for build processing status"
+        echo "📧 Testers will be notified based on configuration"
+        
+        # Add workflow summary
+        echo "## 🚀 TestFlight Deployment Successful" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment Details:**" >> $GITHUB_STEP_SUMMARY
+        echo "- Environment: ${{ steps.config.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Build Number: ${BUILD_NUMBER:-'Auto-generated'}" >> $GITHUB_STEP_SUMMARY
+        echo "- Notify Testers: ${{ steps.config.outputs.notify_testers }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+        echo "1. Monitor build processing in App Store Connect" >> $GITHUB_STEP_SUMMARY
+        echo "2. Test the build on TestFlight" >> $GITHUB_STEP_SUMMARY
+        echo "3. Gather feedback from beta testers" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Notify Deployment Failure
+      if: failure()
+      run: |
+        echo "❌ Deployment Failed!"
+        echo ""
+        echo "🔍 Check the workflow logs for detailed error information"
+        echo "🛠️ Common issues:"
+        echo "  - Certificate or provisioning profile problems"
+        echo "  - App Store Connect API configuration"
+        echo "  - Build or test failures"
+        echo "  - Network connectivity issues"
+        
+        # Add workflow summary
+        echo "## ❌ TestFlight Deployment Failed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Troubleshooting Steps:**" >> $GITHUB_STEP_SUMMARY
+        echo "1. Check workflow logs for specific error messages" >> $GITHUB_STEP_SUMMARY
+        echo "2. Verify all required secrets are configured" >> $GITHUB_STEP_SUMMARY
+        echo "3. Ensure certificates and provisioning profiles are valid" >> $GITHUB_STEP_SUMMARY
+        echo "4. Check App Store Connect API key permissions" >> $GITHUB_STEP_SUMMARY
