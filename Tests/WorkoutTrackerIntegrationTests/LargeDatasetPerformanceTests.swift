@@ -15,29 +15,28 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     // MARK: - CI Environment Detection
 
-    /// Detects if tests are running in a CI environment using multiple indicators
-    /// Primarily uses GITHUB_ACTIONS but includes fallbacks for robustness
+    /// Detects if tests are running in a CI environment with reliable GitHub Actions detection
+    /// Uses GITHUB_ACTIONS as primary indicator with minimal fallbacks for reliability
     private var isRunningInCI: Bool {
         let environment = ProcessInfo.processInfo.environment
 
-        // Primary detection: GitHub Actions
+        // Primary detection: GitHub Actions (most reliable for our workflow)
         if environment["GITHUB_ACTIONS"] == "true" {
             NSLog("🔍 CI detected via GITHUB_ACTIONS=true")
             return true
         }
 
-        // Fallback detection methods for comprehensive CI identification
-        let ciIndicators = [
-            "CI",           // Generic CI indicator
-            "CONTINUOUS_INTEGRATION",  // Another common CI variable
+        // Specific CI platform fallbacks (more reliable than generic "CI" variable)
+        let specificCiIndicators = [
+            "CONTINUOUS_INTEGRATION",  // Standard CI variable
             "BUILD_NUMBER", // Jenkins and others
             "TRAVIS",       // Travis CI
             "CIRCLECI",     // Circle CI
             "BUILDKITE"     // Buildkite
         ]
 
-        for indicator in ciIndicators where environment[indicator] != nil {
-            NSLog("🔍 CI detected via fallback indicator: \(indicator)")
+        for indicator in specificCiIndicators where environment[indicator] != nil {
+            NSLog("🔍 CI detected via specific indicator: \(indicator)")
             return true
         }
 
