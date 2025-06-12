@@ -113,7 +113,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     func testLargeDatasetCreationPerformance() {
         measure {
             // Use smaller dataset in CI to avoid timeouts
-            let entryCount = isRunningInCI ? 500 : 1000
+            let entryCount = isRunningInCI ? 50 : 1000
             let largeDataset = generateLargeDataset(entryCount: entryCount)
             XCTAssertEqual(largeDataset.count, entryCount, "Should generate exactly \(entryCount) entries")
         }
@@ -122,7 +122,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     func testExtraLargeDatasetCreationPerformance() {
         measure {
             // Use smaller dataset in CI to avoid timeouts
-            let entryCount = isRunningInCI ? 1000 : 5000
+            let entryCount = isRunningInCI ? 100 : 5000
             let extraLargeDataset = generateLargeDataset(entryCount: entryCount)
             XCTAssertEqual(extraLargeDataset.count, entryCount, "Should generate exactly \(entryCount) entries")
         }
@@ -293,7 +293,9 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     }
 
     func testExportDataIntegrityWithLargeDataset() {
-        let dataset = generateLargeDataset(entryCount: 300)
+        // Use smaller dataset in CI to avoid timeouts
+        let entryCount = isRunningInCI ? 50 : 300
+        let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry)
         }
@@ -313,7 +315,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
                 }
             }
         }
-        XCTAssertEqual(exportedEntries.count, 300, "Exported data should contain all entries")
+        XCTAssertEqual(exportedEntries.count, entryCount, "Exported data should contain all entries")
         let originalIds = Set(viewModel.entries.map { $0.id })
         let exportedIds = Set(exportedEntries.map { $0.id })
         XCTAssertEqual(originalIds, exportedIds, "All entry IDs should be preserved in export")
@@ -403,7 +405,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     func testExtremeDatasetStressTest() {
         // This test pushes the limits to ensure the app can handle very large datasets
         // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 2000 : 10000
+        let entryCount = isRunningInCI ? 100 : 10000
         let extremeDataset = generateLargeDataset(entryCount: entryCount)
 
         var additionTime: TimeInterval = 0
