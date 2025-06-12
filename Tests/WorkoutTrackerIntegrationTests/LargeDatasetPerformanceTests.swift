@@ -3,13 +3,47 @@ import XCTest
 import Foundation
 @testable import WorkoutTracker
 
+// swiftlint:disable:next orphaned_doc_comment
 /// Performance tests for large workout datasets (1000+ entries)
 /// Tests app performance, memory usage, and scalability with substantial data loads
+// swiftlint:disable:next type_body_length
 final class LargeDatasetPerformanceTests: XCTestCase {
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
     private var viewModel: WorkoutViewModel!
+
+    // MARK: - CI Environment Detection
+
+    /// Detects if tests are running in a CI environment using multiple indicators
+    /// Primarily uses GITHUB_ACTIONS but includes fallbacks for robustness
+    private var isRunningInCI: Bool {
+        let environment = ProcessInfo.processInfo.environment
+
+        // Primary detection: GitHub Actions
+        if environment["GITHUB_ACTIONS"] == "true" {
+            NSLog("🔍 CI detected via GITHUB_ACTIONS=true")
+            return true
+        }
+
+        // Fallback detection methods for comprehensive CI identification
+        let ciIndicators = [
+            "CI",           // Generic CI indicator
+            "CONTINUOUS_INTEGRATION",  // Another common CI variable
+            "BUILD_NUMBER", // Jenkins and others
+            "TRAVIS",       // Travis CI
+            "CIRCLECI",     // Circle CI
+            "BUILDKITE"     // Buildkite
+        ]
+
+        for indicator in ciIndicators where environment[indicator] != nil {
+            NSLog("🔍 CI detected via fallback indicator: \(indicator)")
+            return true
+        }
+
+        NSLog("🏠 Local development environment detected")
+        return false
+    }
 
     override func setUp() {
         super.setUp()
@@ -79,7 +113,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     func testLargeDatasetCreationPerformance() {
         measure {
             // Use smaller dataset in CI to avoid timeouts
-            let entryCount = ProcessInfo.processInfo.environment["CI"] != nil ? 500 : 1000
+            let entryCount = isRunningInCI ? 500 : 1000
             let largeDataset = generateLargeDataset(entryCount: entryCount)
             XCTAssertEqual(largeDataset.count, entryCount, "Should generate exactly \(entryCount) entries")
         }
@@ -88,7 +122,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     func testExtraLargeDatasetCreationPerformance() {
         measure {
             // Use smaller dataset in CI to avoid timeouts
-            let entryCount = ProcessInfo.processInfo.environment["CI"] != nil ? 1000 : 5000
+            let entryCount = isRunningInCI ? 1000 : 5000
             let extraLargeDataset = generateLargeDataset(entryCount: entryCount)
             XCTAssertEqual(extraLargeDataset.count, entryCount, "Should generate exactly \(entryCount) entries")
         }
@@ -216,7 +250,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     func testMemoryEfficiencyAfterBulkOperations() {
         // Use smaller dataset in CI to avoid timeouts
-        let entryCount = ProcessInfo.processInfo.environment["CI"] != nil ? 100 : 400
+        let entryCount = isRunningInCI ? 100 : 400
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry)
@@ -369,7 +403,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     func testExtremeDatasetStressTest() {
         // This test pushes the limits to ensure the app can handle very large datasets
         // Use smaller dataset in CI to avoid timeouts
-        let entryCount = ProcessInfo.processInfo.environment["CI"] != nil ? 2000 : 10000
+        let entryCount = isRunningInCI ? 2000 : 10000
         let extremeDataset = generateLargeDataset(entryCount: entryCount)
 
         var additionTime: TimeInterval = 0
