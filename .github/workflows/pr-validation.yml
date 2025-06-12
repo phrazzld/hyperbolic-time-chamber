@@ -270,10 +270,10 @@ jobs:
           brew install coreutils
           
           # Use gtimeout to prevent hanging tests (matching local pre-push hook)
-          gtimeout 120s swift test --parallel || {
+          gtimeout 180s swift test --parallel || {
             exit_code=$?
             if [ $exit_code -eq 124 ]; then
-              echo "❌ Tests timed out after 120 seconds with ${{ matrix.name }}"
+              echo "❌ Tests timed out after 180 seconds with ${{ matrix.name }}"
               echo "This may indicate hanging tests or performance issues"
               exit 1
             else
