@@ -152,6 +152,9 @@ Current status: **9 Swift files, 24 documentation comments, 100% API coverage**
 
 See [DOCUMENTATION.md](DOCUMENTATION.md) for detailed documentation generation and standards.
 
+### CI/CD Optimization
+See [CI Optimization Best Practices](docs/CI-OPTIMIZATION-BEST-PRACTICES.md) for guidelines on maintaining fast CI pipelines and [CLAUDE.md](CLAUDE.md) for CI troubleshooting.
+
 ### Spell Checking
 ```bash
 # Run spell check

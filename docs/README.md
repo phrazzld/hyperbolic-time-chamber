@@ -61,6 +61,11 @@ swift package --disable-sandbox preview-documentation --target WorkoutTracker
 - Document all public properties and methods
 - Explain architectural patterns and design decisions
 
+## Additional Documentation
+
+- [CI Optimization Best Practices](CI-OPTIMIZATION-BEST-PRACTICES.md) - Guidelines for maintaining fast CI pipelines
+- [CLAUDE.md](../CLAUDE.md) - Developer guide and CI troubleshooting
+
 ---
 
 *Documentation generated using Swift-DocC*
