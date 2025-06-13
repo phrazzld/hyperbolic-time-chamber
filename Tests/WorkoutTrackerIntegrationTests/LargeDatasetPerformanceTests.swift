@@ -1,48 +1,21 @@
 // swiftlint:disable file_length
 import XCTest
 import Foundation
+import TestConfiguration
 @testable import WorkoutTracker
 
 // swiftlint:disable:next orphaned_doc_comment
 /// Performance tests for large workout datasets (1000+ entries)
 /// Tests app performance, memory usage, and scalability with substantial data loads
 // swiftlint:disable:next type_body_length
-final class LargeDatasetPerformanceTests: XCTestCase {
+final class LargeDatasetPerformanceTests: PerformanceTestCase {
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
     private var viewModel: WorkoutViewModel!
 
     // MARK: - CI Environment Detection
-
-    /// Detects if tests are running in a CI environment with reliable GitHub Actions detection
-    /// Uses GITHUB_ACTIONS as primary indicator with minimal fallbacks for reliability
-    private var isRunningInCI: Bool {
-        let environment = ProcessInfo.processInfo.environment
-
-        // Primary detection: GitHub Actions (most reliable for our workflow)
-        if environment["GITHUB_ACTIONS"] == "true" {
-            NSLog("🔍 CI detected via GITHUB_ACTIONS=true")
-            return true
-        }
-
-        // Specific CI platform fallbacks (more reliable than generic "CI" variable)
-        let specificCiIndicators = [
-            "CONTINUOUS_INTEGRATION",  // Standard CI variable
-            "BUILD_NUMBER", // Jenkins and others
-            "TRAVIS",       // Travis CI
-            "CIRCLECI",     // Circle CI
-            "BUILDKITE"     // Buildkite
-        ]
-
-        for indicator in specificCiIndicators where environment[indicator] != nil {
-            NSLog("🔍 CI detected via specific indicator: \(indicator)")
-            return true
-        }
-
-        NSLog("🏠 Local development environment detected")
-        return false
-    }
+    // Now handled by TestConfiguration
 
     // MARK: - CI-Optimized DataStore
 
@@ -86,9 +59,9 @@ final class LargeDatasetPerformanceTests: XCTestCase {
         // Clear dataset cache for test isolation
         datasetCache.removeAll()
 
-        if isRunningInCI {
+        if config.useInMemoryStorage {
             // Use in-memory DataStore for CI to avoid file I/O overhead
-            NSLog("🚀 Using in-memory DataStore for CI performance optimization")
+            NSLog("🚀 Using in-memory DataStore for \(config.environmentName) performance optimization")
             dataStore = InMemoryDataStore()
             // No temporary directory needed for in-memory operations
             temporaryDirectory = URL(fileURLWithPath: "/tmp/ci-mock")
@@ -116,7 +89,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     override func tearDown() {
         // Clean up temporary directory only in local development
-        if !isRunningInCI {
+        if !config.useInMemoryStorage {
             try? FileManager.default.removeItem(at: temporaryDirectory)
         }
         temporaryDirectory = nil
@@ -226,18 +199,20 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     // MARK: - Dataset Creation Performance Tests
 
     func testLargeDatasetCreationPerformance() {
-        measure {
-            // Use smaller dataset in CI to avoid timeouts
-            let entryCount = isRunningInCI ? 50 : 1000
+        measureWithConfig {
+            // Use configuration-based dataset sizing
+            let entryCount = config.largeDatasetSize
+            logDatasetSize(entryCount, for: "large dataset creation")
             let largeDataset = generateLargeDataset(entryCount: entryCount)
             XCTAssertEqual(largeDataset.count, entryCount, "Should generate exactly \(entryCount) entries")
         }
     }
 
     func testExtraLargeDatasetCreationPerformance() {
-        measure {
-            // Use smaller dataset in CI to avoid timeouts
-            let entryCount = isRunningInCI ? 50 : 5000
+        measureWithConfig {
+            // Use configuration-based dataset sizing
+            let entryCount = config.extraLargeDatasetSize
+            logDatasetSize(entryCount, for: "extra large dataset creation")
             let extraLargeDataset = generateLargeDataset(entryCount: entryCount)
             XCTAssertEqual(extraLargeDataset.count, entryCount, "Should generate exactly \(entryCount) entries")
         }
@@ -246,11 +221,12 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     // MARK: - ViewModel Operations Performance Tests
 
     func testAddingLargeDatasetToViewModelPerformance() {
-        // Use smaller dataset in CI to avoid timeouts  
-        let entryCount = isRunningInCI ? 20 : 100
+        // Use configuration-based dataset sizing
+        let entryCount = datasetSize(for: .small)
+        logDatasetSize(entryCount, for: "ViewModel addition")
         let dataset = generateLargeDataset(entryCount: entryCount)
 
-        measure {
+        measureWithConfig {
             // Clear any existing entries
             viewModel.entries.removeAll()
 
@@ -265,8 +241,8 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     func testBulkDeletionPerformance() {
         // Arrange: Add dataset first (optimized size for performance testing)
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 40 : 200
+        // Use configuration-based dataset sizing
+        let entryCount = datasetSize(for: .small) * 2  // Double small size for deletion test
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry) // Use direct append to avoid save overhead
@@ -275,7 +251,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
         XCTAssertEqual(viewModel.entries.count, entryCount, "Should have \(entryCount) entries initially")
 
         // Act & Measure: Delete half the entries (second half)
-        measure {
+        measureWithConfig {
             // Delete second half of entries
             let midPoint = entryCount / 2
             let indicesToDelete = Array(midPoint..<entryCount)
@@ -289,15 +265,15 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     func testViewModelSearchOperationsPerformance() {
         // Arrange: Add dataset (optimized size for performance testing)
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 30 : 500
+        // Use configuration-based dataset sizing
+        let entryCount = config.mediumDatasetSize
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry) // Use direct append to avoid save overhead
         }
         viewModel.save() // Single save after all additions
 
-        measure {
+        measureWithConfig {
             // Simulate common search operations
             let pushUpEntries = viewModel.entries.filter { $0.exerciseName.contains("Push-ups") }
             let weightedEntries = viewModel.entries.filter { entry in
@@ -317,13 +293,13 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     // MARK: - Data Persistence Performance Tests
 
     func testLargeDatasetSavePerformance() {
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 40 : 1500
+        // Use configuration-based dataset sizing
+        let entryCount = config.largeDatasetSize * 3  // Triple large size for save test
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry)
         }
-        measure {
+        measureWithConfig {
             viewModel.save()
         }
         let fileURL = temporaryDirectory.appendingPathComponent("workout_entries.json")
@@ -331,62 +307,62 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     }
 
     func testLargeDatasetLoadPerformance() {
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 50 : 2000
+        // Use configuration-based dataset sizing
+        let entryCount = config.largeDatasetSize * 2  // Double large size for load test
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.addEntry(entry)
         }
         XCTAssertEqual(viewModel.entries.count, entryCount, "Should have saved \(entryCount) entries")
-        measure {
+        measureWithConfig {
             let freshViewModel = WorkoutViewModel(dataStore: dataStore)
             XCTAssertEqual(freshViewModel.entries.count, entryCount, "Should load all \(entryCount) entries")
         }
     }
 
     func testSaveLoadRoundTripPerformance() {
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 40 : 1000
+        // Use configuration-based dataset sizing
+        let entryCount = config.largeDatasetSize
         let dataset = generateLargeDataset(entryCount: entryCount)
-        measure {
+        measureWithConfig {
             viewModel.entries.removeAll()
             for entry in dataset {
                 viewModel.entries.append(entry)
             }
             viewModel.save()
             let freshViewModel = WorkoutViewModel(dataStore: dataStore)
-            XCTAssertEqual(freshViewModel.entries.count, 1000, "Round trip should preserve all entries")
+            XCTAssertEqual(freshViewModel.entries.count, entryCount, "Round trip should preserve all entries")
         }
     }
 
     // MARK: - Memory Performance Tests
 
     func testMemoryUsageWithLargeDataset() {
-        measure {
+        measureWithConfig {
             viewModel.entries.removeAll()
-            // Use smaller dataset in CI to avoid timeouts
-            let entryCount = isRunningInCI ? 35 : 800
+            // Use configuration-based dataset sizing
+            let entryCount = datasetSize(for: .medium)
             let dataset = generateLargeDataset(entryCount: entryCount)
             for entry in dataset {
                 viewModel.entries.append(entry)
             }
             let filteredEntries = viewModel.entries.filter { $0.exerciseName.contains("Push") }
             let sortedEntries = viewModel.entries.sorted { $0.date > $1.date }
-            XCTAssertEqual(viewModel.entries.count, 800, "Should maintain 800 entries")
+            XCTAssertEqual(viewModel.entries.count, entryCount, "Should maintain \(entryCount) entries")
             XCTAssertGreaterThan(filteredEntries.count, 0, "Should find filtered entries")
-            XCTAssertEqual(sortedEntries.count, 800, "Sorted entries should match original count")
+            XCTAssertEqual(sortedEntries.count, entryCount, "Sorted entries should match original count")
         }
     }
 
     func testMemoryEfficiencyAfterBulkOperations() {
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 50 : 400
+        // Use configuration-based dataset sizing
+        let entryCount = datasetSize(for: .small) * 4  // Quadruple small size
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry)
         }
         viewModel.save()
-        measure {
+        measureWithConfig {
             let deleteCount = entryCount / 2
             let indicesToDelete = Array(deleteCount..<entryCount)
             for index in indicesToDelete.reversed() {
@@ -399,15 +375,15 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     // MARK: - Export Performance Tests
 
     func testLargeDatasetExportPerformance() {
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 30 : 600
+        // Use configuration-based dataset sizing
+        let entryCount = datasetSize(for: .medium)
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry)
         }
         viewModel.save()
         var exportURL: URL?
-        measure {
+        measureWithConfig {
             exportURL = viewModel.exportJSON()
         }
         XCTAssertNotNil(exportURL, "Export should succeed")
@@ -425,8 +401,8 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     }
 
     func testExportDataIntegrityWithLargeDataset() {
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 50 : 300
+        // Use configuration-based dataset sizing
+        let entryCount = datasetSize(for: .small) * 3  // Triple small size
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry)
@@ -434,7 +410,7 @@ final class LargeDatasetPerformanceTests: XCTestCase {
         viewModel.save()
         var exportURL: URL?
         var exportedEntries: [ExerciseEntry] = []
-        measure {
+        measureWithConfig {
             exportURL = viewModel.exportJSON()
             if let url = exportURL {
                 do {
@@ -455,8 +431,8 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     // MARK: - Scalability Tests
 
-    #if !CI_BUILD
-    func testScalabilityAcrossDifferentDatasetSizes() {
+    func testScalabilityAcrossDifferentDatasetSizes() throws {
+        try skipIfCI(reason: "Scalability test excluded from CI")
         let sizes = [1000, 2500, 5000]
         var addTimes: [Double] = []
         var saveTimes: [Double] = []
@@ -490,18 +466,17 @@ final class LargeDatasetPerformanceTests: XCTestCase {
         XCTAssertLessThan(saveTimes[1] / saveTimes[0], 12.0, "2.5x data should not take >12x time to save")
         XCTAssertLessThan(saveTimes[2] / saveTimes[0], 30.0, "5x data should not take >30x time to save")
     }
-    #endif
 
     func testConcurrentOperationsPerformance() {
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 25 : 300
+        // Use configuration-based dataset sizing
+        let entryCount = datasetSize(for: .small) * 3  // Triple small size
         let dataset = generateLargeDataset(entryCount: entryCount)
         for entry in dataset {
             viewModel.entries.append(entry) // Use direct append to avoid save overhead
         }
         viewModel.save() // Single save after all additions
 
-        measure {
+        measureWithConfig {
             // Simulate multiple operations happening in sequence
             // (actual concurrency would require more complex setup)
 
@@ -538,11 +513,11 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     // MARK: - Stress Tests
 
-    #if !CI_BUILD
-    func testExtremeDatasetStressTest() {
+    func testExtremeDatasetStressTest() throws {
         // This test pushes the limits to ensure the app can handle very large datasets
-        // Use smaller dataset in CI to avoid timeouts
-        let entryCount = isRunningInCI ? 50 : 10000
+        try skipIfCI(reason: "Extreme stress test excluded from CI")
+
+        let entryCount = config.stressDatasetSize
         let extremeDataset = generateLargeDataset(entryCount: entryCount)
 
         var additionTime: TimeInterval = 0
@@ -579,5 +554,4 @@ final class LargeDatasetPerformanceTests: XCTestCase {
         XCTAssertNotNil(exportURL, "Should be able to export \(entryCount) entries")
         XCTAssertLessThan(exportTime, 40.0, "Exporting \(entryCount) entries should complete within 40 seconds")
     }
-    #endif
 }

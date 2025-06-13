@@ -19,15 +19,26 @@ let package = Package(
             dependencies: [],
             path: "Sources/WorkoutTracker"
         ),
+        .target(
+            name: "TestConfiguration",
+            dependencies: [],
+            path: "Tests/TestConfiguration",
+            exclude: ["README.md"],
+            resources: [
+                .process("ci-config.json"),
+                .process("local-config.json")
+            ]
+        ),
         .testTarget(
             name: "WorkoutTrackerTests",
-            dependencies: ["WorkoutTracker"],
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
             path: "Tests/WorkoutTrackerTests"
         ),
         .testTarget(
             name: "WorkoutTrackerIntegrationTests",
             dependencies: [
                 "WorkoutTracker",
+                "TestConfiguration",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ],
             path: "Tests/WorkoutTrackerIntegrationTests"
