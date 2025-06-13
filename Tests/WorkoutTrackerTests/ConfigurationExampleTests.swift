@@ -55,6 +55,45 @@ final class ConfigurationExampleTests: UnitTestCase {
         XCTAssertTrue(config.enableMemoryProfiling)
     }
 
+    func testExecutionMonitoring() {
+        // Demonstrate execution monitoring capabilities
+        reportProgress("Starting execution monitoring demonstration")
+
+        // Simulate some work with milestones
+        Thread.sleep(forTimeInterval: 0.1)
+        logMilestone("Completed phase 1", elapsed: 0.1)
+
+        Thread.sleep(forTimeInterval: 0.2)
+        logMilestone("Completed phase 2", elapsed: 0.3)
+
+        // Generate test summary
+        let summary = generateTestSummary()
+        NSLog("📈 Test summary: \(summary)")
+
+        // Access monitor for advanced usage
+        let monitor = executionMonitor
+        XCTAssertNotNil(monitor)
+    }
+
+    func testSlowOperationMonitoring() {
+        // This test intentionally takes longer to demonstrate slow test detection
+        reportProgress("Starting intentionally slow operation")
+
+        // Simulate slow work that should trigger monitoring
+        let iterations = config.isCI ? 100 : 1000
+        var result = 0
+
+        for index in 0..<iterations {
+            result += index
+            if index % (iterations / 4) == 0 {
+                logMilestone("Processed \(index) items")
+            }
+        }
+
+        reportProgress("Completed slow operation with result: \(result)")
+        XCTAssertGreaterThan(result, 0)
+    }
+
     // Helper to generate test data
     private func generateTestData(count: Int) -> [String] {
         (0..<count).map { "Item \($0)" }

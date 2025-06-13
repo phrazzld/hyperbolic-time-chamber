@@ -118,6 +118,43 @@ public struct TestConfiguration {
     public var enableMemoryProfiling: Bool {
         !isCI // Disable in CI to reduce overhead
     }
+
+    // MARK: - Test Execution Monitoring
+
+    /// Whether to enable detailed test execution monitoring
+    public var enableTestMonitoring: Bool {
+        true // Always enabled for visibility
+    }
+
+    /// Whether to log progress during test execution
+    public var enableProgressLogging: Bool {
+        isCI // More verbose in CI to help debug timeouts
+    }
+
+    /// Threshold for marking tests as "slow" (in seconds)
+    public var slowTestThreshold: TimeInterval {
+        isCI ? 2.0 : 5.0
+    }
+
+    /// Threshold for marking tests as "very slow" (in seconds)
+    public var verySlowTestThreshold: TimeInterval {
+        isCI ? 5.0 : 10.0
+    }
+
+    /// Interval for progress reporting during long test suites (in seconds)
+    public var progressReportingInterval: TimeInterval {
+        isCI ? 30.0 : 60.0
+    }
+
+    /// Whether to generate structured JSON output for CI parsing
+    public var enableStructuredOutput: Bool {
+        isCI
+    }
+
+    /// Maximum number of slowest tests to report in summary
+    public var maxSlowTestsToReport: Int {
+        isCI ? 10 : 20
+    }
 }
 
 // MARK: - Convenience Methods

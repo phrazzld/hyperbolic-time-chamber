@@ -7,6 +7,9 @@ open class ConfigurableTestCase: XCTestCase {
     /// Shared test configuration
     public let config = TestConfiguration.shared
 
+    /// Test execution monitor
+    private let monitor = TestExecutionMonitor.shared
+
     /// Test start time for execution monitoring
     private var testStartTime: Date?
 
@@ -20,20 +23,43 @@ open class ConfigurableTestCase: XCTestCase {
     override open func setUp() {
         super.setUp()
         testStartTime = Date()
+
+        // Register with execution monitor if enabled
+        if config.enableTestMonitoring {
+            let suiteName = Self.description()
+            monitor.startTest(name, in: suiteName, category: testCategory)
+        }
     }
 
     override open func tearDown() {
-        // Log test execution time if it exceeds warning threshold
-        if let startTime = testStartTime {
-            let executionTime = Date().timeIntervalSince(startTime)
-            if executionTime > config.testWarningThreshold {
-                let msg = "⚠️ Test '\(name)' took \(String(format: "%.2f", executionTime))s"
-                NSLog("\(msg) (threshold: \(config.testWarningThreshold)s)")
-            }
+        defer {
+            testStartTime = nil
+            super.tearDown()
         }
 
-        testStartTime = nil
-        super.tearDown()
+        guard let startTime = testStartTime else { return }
+        let executionTime = Date().timeIntervalSince(startTime)
+
+        // Report to execution monitor if enabled
+        if config.enableTestMonitoring {
+            let suiteName = Self.description()
+            let passed = !continueAfterFailure || testRun?.hasSucceeded != false
+            let skipped = testRun?.hasBeenSkipped ?? false
+
+            monitor.endTest(
+                name,
+                in: suiteName,
+                passed: passed,
+                skipped: skipped,
+                category: testCategory
+            )
+        }
+
+        // Legacy warning threshold logging (still useful for immediate feedback)
+        if executionTime > config.testWarningThreshold {
+            let msg = "⚠️ Test '\(name)' took \(String(format: "%.2f", executionTime))s"
+            NSLog("\(msg) (threshold: \(config.testWarningThreshold)s)")
+        }
     }
 
     // MARK: - Test Utilities
@@ -174,6 +200,42 @@ open class ConfigurableTestCase: XCTestCase {
             let msg = "⚠️ High memory usage detected for \(operation): \(memoryUsageMB)MB"
             NSLog("\(msg) (threshold: \(config.memoryWarningThreshold)MB)")
         }
+    }
+
+    // MARK: - Test Execution Monitoring
+
+    /// Report progress for long-running operations
+    public func reportProgress(_ message: String) {
+        if config.enableProgressLogging {
+            NSLog("📊 \(Self.self).\(name): \(message)")
+        }
+    }
+
+    /// Log milestone during test execution
+    public func logMilestone(_ milestone: String, elapsed: TimeInterval? = nil) {
+        if config.enableProgressLogging {
+            let timeInfo = elapsed.map { " (\(String(format: "%.2f", $0))s)" } ?? ""
+            NSLog("🏁 \(Self.self).\(name): \(milestone)\(timeInfo)")
+        }
+    }
+
+    /// Get elapsed time since test started
+    public func getElapsedTime() -> TimeInterval? {
+        guard let startTime = testStartTime else { return nil }
+        return Date().timeIntervalSince(startTime)
+    }
+
+    /// Generate summary for current test execution
+    public func generateTestSummary() -> String {
+        guard let startTime = testStartTime else { return "Test not started" }
+        let elapsed = Date().timeIntervalSince(startTime)
+        let category = testCategory.description
+        return "\(name) (\(category)): \(String(format: "%.3f", elapsed))s"
+    }
+
+    /// Get access to execution monitor for advanced monitoring
+    public var executionMonitor: TestExecutionMonitor {
+        monitor
     }
 }
 

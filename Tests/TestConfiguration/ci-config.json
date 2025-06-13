@@ -27,5 +27,14 @@
   "memory": {
     "warningThresholdMB": 512,
     "enableProfiling": false
+  },
+  "monitoring": {
+    "enableTestMonitoring": true,
+    "enableProgressLogging": true,
+    "slowTestThreshold": 2.0,
+    "verySlowTestThreshold": 5.0,
+    "progressReportingInterval": 30.0,
+    "enableStructuredOutput": true,
+    "maxSlowTestsToReport": 10
   }
 }

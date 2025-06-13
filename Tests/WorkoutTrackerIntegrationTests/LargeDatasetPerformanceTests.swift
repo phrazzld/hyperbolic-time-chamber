@@ -199,12 +199,20 @@ final class LargeDatasetPerformanceTests: PerformanceTestCase {
     // MARK: - Dataset Creation Performance Tests
 
     func testLargeDatasetCreationPerformance() {
+        reportProgress("Starting large dataset creation performance test")
+
         measureWithConfig {
             // Use configuration-based dataset sizing
             let entryCount = config.largeDatasetSize
             logDatasetSize(entryCount, for: "large dataset creation")
+
+            logMilestone("Starting dataset generation")
             let largeDataset = generateLargeDataset(entryCount: entryCount)
+
+            logMilestone("Dataset generation completed", elapsed: getElapsedTime())
             XCTAssertEqual(largeDataset.count, entryCount, "Should generate exactly \(entryCount) entries")
+
+            reportProgress("Completed dataset creation with \(largeDataset.count) entries")
         }
     }
 
