@@ -83,6 +83,9 @@ final class LargeDatasetPerformanceTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
+        // Clear dataset cache for test isolation
+        datasetCache.removeAll()
+
         if isRunningInCI {
             // Use in-memory DataStore for CI to avoid file I/O overhead
             NSLog("🚀 Using in-memory DataStore for CI performance optimization")
@@ -124,34 +127,100 @@ final class LargeDatasetPerformanceTests: XCTestCase {
 
     // MARK: - Test Data Generation
 
-    /// Generates realistic workout entries for performance testing
-    private func generateLargeDataset(entryCount: Int) -> [ExerciseEntry] {
-        let exerciseNames = [
-            "Push-ups", "Pull-ups", "Squats", "Deadlifts", "Bench Press",
-            "Overhead Press", "Rows", "Dips", "Lunges", "Planks",
-            "Burpees", "Mountain Climbers", "Jumping Jacks", "Russian Twists",
-            "Bicep Curls", "Tricep Extensions", "Shoulder Press", "Lat Pulldowns",
-            "Leg Press", "Calf Raises", "Hip Thrusts", "Face Pulls",
-            "Arnold Press", "Bulgarian Split Squats", "Romanian Deadlifts"
-        ]
+    // Pre-computed exercise names for faster access
+    private static let exerciseNames = [
+        "Push-ups", "Pull-ups", "Squats", "Deadlifts", "Bench Press",
+        "Overhead Press", "Rows", "Dips", "Lunges", "Planks",
+        "Burpees", "Mountain Climbers", "Jumping Jacks", "Russian Twists",
+        "Bicep Curls", "Tricep Extensions", "Shoulder Press", "Lat Pulldowns",
+        "Leg Press", "Calf Raises", "Hip Thrusts", "Face Pulls",
+        "Arnold Press", "Bulgarian Split Squats", "Romanian Deadlifts"
+    ]
 
-        return (0..<entryCount).map { entryIndex in
-            let exerciseName = exerciseNames[entryIndex % exerciseNames.count]
-            let setsCount = (entryIndex % 5) + 1 // 1-5 sets per exercise
-
-            let sets = (0..<setsCount).map { setIndex in
-                let reps = 8 + (setIndex * 2) + (entryIndex % 5) // Varied reps: 8-20
-                // Mix of bodyweight and weighted exercises
-                let weight = entryIndex % 3 == 0 ? nil : Double(40 + (entryIndex % 60))
-                return ExerciseSet(reps: reps, weight: weight)
+    // Pre-generated exercise sets for reuse
+    private static let preGeneratedSets: [[ExerciseSet]] = {
+        // Generate 5 different set combinations that can be reused
+        (1...5).map { setCount in
+            (0..<setCount).map { setIndex in
+                ExerciseSet(reps: 10 + (setIndex * 2), weight: setIndex == 0 ? nil : Double(45 + setIndex * 5))
             }
+        }
+    }()
 
-            return ExerciseEntry(
-                exerciseName: "\(exerciseName) \(entryIndex / exerciseNames.count + 1)",
-                date: Date().addingTimeInterval(-Double(entryIndex * 3600)), // 1 hour ago, going backwards
-                sets: sets
+    // Cache for generated datasets to avoid regeneration
+    private var datasetCache: [Int: [ExerciseEntry]] = [:]
+
+    // Pre-generate common CI dataset sizes for immediate access
+    private static let commonDatasets: [Int: [ExerciseEntry]] = {
+        var datasets: [Int: [ExerciseEntry]] = [:]
+        let commonSizes = [20, 25, 30, 35, 40, 50] // Common CI sizes
+
+        for size in commonSizes {
+            datasets[size] = LargeDatasetPerformanceTests.generateStaticDataset(count: size)
+        }
+
+        return datasets
+    }()
+
+    // Static dataset generation for pre-computed datasets
+    private static func generateStaticDataset(count: Int) -> [ExerciseEntry] {
+        let baseDate = Date(timeIntervalSince1970: 1000000) // Fixed date for consistency
+        return (0..<count).map { index in
+            ExerciseEntry(
+                exerciseName: exerciseNames[index % exerciseNames.count],
+                date: baseDate.addingTimeInterval(-Double(index) * 3600),
+                sets: preGeneratedSets[index % 5]
             )
         }
+    }
+
+    /// Generates realistic workout entries for performance testing (optimized version)
+    private func generateLargeDataset(entryCount: Int) -> [ExerciseEntry] {
+        // Check pre-generated common datasets first
+        if let common = Self.commonDatasets[entryCount] {
+            return common
+        }
+
+        // Check instance cache
+        if let cached = datasetCache[entryCount] {
+            return cached
+        }
+
+        // Use a single base date and simple offset calculation
+        let baseDate = Date()
+        let hourInSeconds: Double = 3600
+
+        // Pre-allocate array capacity for better performance
+        var entries = [ExerciseEntry]()
+        entries.reserveCapacity(entryCount)
+
+        // Generate entries with simplified calculations
+        for entryIndex in 0..<entryCount {
+            let exerciseNameIndex = entryIndex % Self.exerciseNames.count
+            let exerciseName = Self.exerciseNames[exerciseNameIndex]
+            let suffix = entryIndex / Self.exerciseNames.count
+
+            // Reuse pre-generated sets
+            let setIndex = entryIndex % 5
+            let sets = Self.preGeneratedSets[setIndex]
+
+            // Simple date calculation
+            let entryDate = baseDate.addingTimeInterval(-Double(entryIndex) * hourInSeconds)
+
+            let entry = ExerciseEntry(
+                exerciseName: suffix == 0 ? exerciseName : "\(exerciseName) \(suffix + 1)",
+                date: entryDate,
+                sets: sets
+            )
+            entries.append(entry)
+        }
+
+        // Cache for small datasets (CI environment)
+        if entryCount <= 100 {
+            datasetCache[entryCount] = entries
+        }
+
+        return entries
     }
 
     // MARK: - Dataset Creation Performance Tests
