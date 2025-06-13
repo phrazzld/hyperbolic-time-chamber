@@ -65,6 +65,27 @@ DEFAULT_BASELINES='{
       "critical": 80,
       "unit": "count",
       "description": "Total number of tests executed"
+    },
+    "peak_memory_usage": {
+      "target": 1024,
+      "warning": 2048,
+      "critical": 4096,
+      "unit": "MB",
+      "description": "Peak memory usage during CI execution"
+    },
+    "average_memory_usage": {
+      "target": 512,
+      "warning": 1024,
+      "critical": 2048,
+      "unit": "MB",
+      "description": "Average memory usage during CI execution"
+    },
+    "memory_efficiency": {
+      "target": 80,
+      "warning": 90,
+      "critical": 95,
+      "unit": "percent",
+      "description": "Memory utilization efficiency (lower is better)"
     }
   }
 }'
@@ -157,6 +178,47 @@ initialize_baselines() {
     fi
 }
 
+# Memory monitoring functions
+get_current_memory_usage() {
+    local memory_mb=0
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS memory collection using vm_stat and activity monitor data
+        local vm_stat_output=$(vm_stat 2>/dev/null)
+        
+        if [ $? -eq 0 ]; then
+            # Parse vm_stat output for memory usage
+            local pages_free=$(echo "$vm_stat_output" | grep "Pages free:" | awk '{print $3}' | tr -d '.')
+            local pages_active=$(echo "$vm_stat_output" | grep "Pages active:" | awk '{print $3}' | tr -d '.')
+            local pages_inactive=$(echo "$vm_stat_output" | grep "Pages inactive:" | awk '{print $3}' | tr -d '.')
+            local pages_speculative=$(echo "$vm_stat_output" | grep "Pages speculative:" | awk '{print $3}' | tr -d '.')
+            local pages_wired=$(echo "$vm_stat_output" | grep "Pages wired down:" | awk '{print $4}' | tr -d '.')
+            
+            # Get page size (usually 4096 bytes on macOS)
+            local page_size=$(vm_stat | head -1 | grep -o '[0-9]*' || echo "4096")
+            
+            # Calculate used memory in MB
+            local pages_used=$((pages_active + pages_inactive + pages_speculative + pages_wired))
+            memory_mb=$(( (pages_used * page_size) / 1024 / 1024 ))
+        else
+            # Fallback: use top command for current process memory
+            local process_memory=$(top -l 1 -n 0 | grep "PhysMem:" | awk '{print $2}' | tr -d 'M' 2>/dev/null || echo "0")
+            memory_mb=${process_memory:-0}
+        fi
+    else
+        # Linux memory collection using /proc/meminfo
+        if [ -f /proc/meminfo ]; then
+            local mem_total=$(grep "MemTotal:" /proc/meminfo | awk '{print $2}')
+            local mem_available=$(grep "MemAvailable:" /proc/meminfo | awk '{print $2}')
+            local mem_used=$((mem_total - mem_available))
+            memory_mb=$((mem_used / 1024))
+        fi
+    fi
+    
+    echo "$memory_mb"
+}
+
+
 # Collect performance metrics from CI execution
 collect_metrics() {
     echo -e "${BLUE}🔍 Collecting CI performance metrics...${NC}"
@@ -209,6 +271,48 @@ collect_metrics() {
     # Calculate total CI time estimation
     local total_ci_time=$((test_execution_time + debug_build_time + release_build_time + 60)) # +60s for overhead
     
+    # Collect memory usage metrics
+    echo -e "${BLUE}🧠 Collecting memory usage metrics...${NC}"
+    
+    # Simplified memory collection - take a few samples
+    local peak_memory=0
+    local total_memory=0
+    local sample_count=5
+    
+    if [ "$VERBOSE" = true ]; then
+        echo "🧠 Taking $sample_count memory samples..."
+    fi
+    
+    for i in $(seq 1 $sample_count); do
+        local current_memory=$(get_current_memory_usage)
+        total_memory=$((total_memory + current_memory))
+        
+        if [ "$current_memory" -gt "$peak_memory" ]; then
+            peak_memory=$current_memory
+        fi
+        
+        if [ "$VERBOSE" = true ]; then
+            echo "   📊 Sample $i: ${current_memory}MB"
+        fi
+        
+        # Small delay between samples
+        sleep 1
+    done
+    
+    # Calculate average and efficiency
+    local avg_memory=$((total_memory / sample_count))
+    local memory_efficiency=0
+    if [ "$peak_memory" -gt 0 ]; then
+        memory_efficiency=$(echo "scale=0; ($avg_memory * 100) / $peak_memory" | bc -l 2>/dev/null || echo "0")
+    fi
+    
+    if [ "$VERBOSE" = true ]; then
+        echo "🧠 Memory analysis complete:"
+        echo "   - Peak memory usage: ${peak_memory}MB"
+        echo "   - Average memory usage: ${avg_memory}MB"
+        echo "   - Memory efficiency: ${memory_efficiency}%"
+    fi
+    
     # Create performance metrics JSON
     local metrics='{
       "version": "'$BENCHMARK_VERSION'",
@@ -226,7 +330,10 @@ collect_metrics() {
         "debug_build_time": '$debug_build_time',
         "release_build_time": '$release_build_time',
         "cache_hit_rate": '$cache_hit_rate',
-        "test_count": '$total_tests'
+        "test_count": '$total_tests',
+        "peak_memory_usage": '$peak_memory',
+        "average_memory_usage": '$avg_memory',
+        "memory_efficiency": '$memory_efficiency'
       }
     }'
     
@@ -266,7 +373,7 @@ analyze_performance() {
     echo "=============================================="
     
     # Compare each metric against baselines
-    for metric in total_ci_time test_execution_time debug_build_time release_build_time cache_hit_rate test_count; do
+    for metric in total_ci_time test_execution_time debug_build_time release_build_time cache_hit_rate test_count peak_memory_usage average_memory_usage memory_efficiency; do
         local current_value=$(jq -r ".metrics.$metric // 0" "$RESULTS_FILE")
         local target=$(jq -r ".baselines.$metric.target // 0" "$BASELINE_FILE")
         local warning=$(jq -r ".baselines.$metric.warning // 0" "$BASELINE_FILE")
@@ -364,7 +471,7 @@ generate_trend_report() {
     echo ""
     
     # Calculate trends for key metrics
-    for metric in total_ci_time test_execution_time cache_hit_rate; do
+    for metric in total_ci_time test_execution_time cache_hit_rate peak_memory_usage average_memory_usage; do
         local recent_values=$(echo "$recent_runs" | jq -r ".metrics.$metric" | head -5)
         local avg_recent=$(echo "$recent_values" | awk '{sum+=$1} END {print sum/NR}' 2>/dev/null || echo "0")
         
@@ -420,19 +527,25 @@ generate_github_summary() {
         local test_time=$(jq -r '.metrics.test_execution_time' "$RESULTS_FILE")
         local cache_hit_rate=$(jq -r '.metrics.cache_hit_rate' "$RESULTS_FILE")
         local test_count=$(jq -r '.metrics.test_count' "$RESULTS_FILE")
+        local peak_memory=$(jq -r '.metrics.peak_memory_usage' "$RESULTS_FILE")
+        local avg_memory=$(jq -r '.metrics.average_memory_usage' "$RESULTS_FILE")
+        local memory_efficiency=$(jq -r '.metrics.memory_efficiency' "$RESULTS_FILE")
         
         echo "### 🎯 Current Performance" >> "$GITHUB_STEP_SUMMARY"
         echo "- **Total CI Time**: ${total_ci_time}s" >> "$GITHUB_STEP_SUMMARY"
         echo "- **Test Execution**: ${test_time}s" >> "$GITHUB_STEP_SUMMARY"
         echo "- **Cache Hit Rate**: ${cache_hit_rate}%" >> "$GITHUB_STEP_SUMMARY"
         echo "- **Tests Executed**: $test_count" >> "$GITHUB_STEP_SUMMARY"
+        echo "- **Peak Memory Usage**: ${peak_memory}MB" >> "$GITHUB_STEP_SUMMARY"
+        echo "- **Average Memory Usage**: ${avg_memory}MB" >> "$GITHUB_STEP_SUMMARY"
+        echo "- **Memory Efficiency**: ${memory_efficiency}%" >> "$GITHUB_STEP_SUMMARY"
         echo "- **Measured At**: $timestamp" >> "$GITHUB_STEP_SUMMARY"
         echo "" >> "$GITHUB_STEP_SUMMARY"
         
         # Add baseline comparison
         echo "### 📈 Performance vs Baselines" >> "$GITHUB_STEP_SUMMARY"
         
-        for metric in total_ci_time test_execution_time cache_hit_rate; do
+        for metric in total_ci_time test_execution_time cache_hit_rate peak_memory_usage average_memory_usage; do
             local current=$(jq -r ".metrics.$metric" "$RESULTS_FILE")
             local target=$(jq -r ".baselines.$metric.target" "$BASELINE_FILE" 2>/dev/null || echo "0")
             local unit=$(jq -r ".baselines.$metric.unit" "$BASELINE_FILE" 2>/dev/null || echo "")
