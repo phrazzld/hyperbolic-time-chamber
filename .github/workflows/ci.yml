@@ -33,7 +33,7 @@ jobs:
         run: swiftlint lint --reporter github-actions-logging
 
       - name: Build Project
-        run: swift build
+        run: swift build -Xswiftc -DCI_BUILD
 
       - name: Run Tests with Coverage
         run: |

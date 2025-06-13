@@ -26,7 +26,13 @@ mkdir -p $COVERAGE_DIR
 
 # Run tests with coverage enabled
 echo "🧪 Running tests with code coverage enabled..."
-swift test --enable-code-coverage
+# Pass CI_BUILD flag when running in CI environment
+if [ -n "$GITHUB_ACTIONS" ]; then
+    echo "📌 CI environment detected - excluding stress tests with CI_BUILD flag"
+    swift test --enable-code-coverage -Xswiftc -DCI_BUILD
+else
+    swift test --enable-code-coverage
+fi
 
 # Find the generated coverage files
 PROFDATA_FILE=$(find .build -name "*.profdata" | head -1)

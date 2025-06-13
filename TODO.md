@@ -6,7 +6,7 @@
 - [x] **Increase CI test timeout from 120s to 180s** - Tests are timing out at test 112/118, need more buffer time for CI environments
 - [x] **Enhance CI environment detection** - Replace `ProcessInfo.processInfo.environment["CI"]` with `ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true"` for more reliable detection  
 - [x] **Further reduce performance test dataset sizes** - Current CI optimizations (50-100 entries) still too large, reduce to 20-50 entries maximum
-- [ ] **Skip #if !CI_BUILD tests in CI** - Ensure conditional compilation properly excludes stress tests in CI environments
+- [~] **Skip #if !CI_BUILD tests in CI** - Ensure conditional compilation properly excludes stress tests in CI environments
 
 ### Performance Test Optimization (High Priority)  
 - [ ] **Optimize LargeDatasetPerformanceTests execution time** - Tests 67-93 taking excessive time, need faster test data generation
