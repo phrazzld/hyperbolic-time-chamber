@@ -529,6 +529,28 @@ jobs:
               });
             }
 
+      - name: Benchmark CI Performance
+        if: always()
+        run: |
+          echo "📊 Running CI performance benchmark..."
+          
+          # Make benchmark script executable
+          chmod +x scripts/benchmark-ci-performance.sh
+          
+          # Install bc for numerical comparisons (if not already installed)
+          brew install bc
+          
+          # Collect and analyze performance metrics
+          ./scripts/benchmark-ci-performance.sh --verbose
+
+      - name: Upload Performance Benchmarks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-benchmarks
+          path: .benchmarks/
+          retention-days: 90
+
   screenshots:
     name: Generate App Store Screenshots
     runs-on: macos-latest

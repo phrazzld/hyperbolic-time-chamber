@@ -150,3 +150,6 @@ Tests/**/SnapshotHelper.swift
 
 # Test result cache (local development optimization)
 .test-cache/
+
+# CI performance benchmarks (dynamic performance data)
+.benchmarks/
