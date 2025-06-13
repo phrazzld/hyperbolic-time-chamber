@@ -147,3 +147,6 @@ Tests/**/SnapshotHelper.swift
 # Swift code coverage files
 *.profraw
 *.profdata
+
+# Test result cache (local development optimization)
+.test-cache/

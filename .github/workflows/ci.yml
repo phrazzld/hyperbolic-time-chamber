@@ -18,13 +18,40 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Cache Swift Package Manager
+      - name: Generate Cache Keys
+        id: cache-keys
+        run: |
+          # Generate comprehensive cache keys for different artifacts
+          SOURCE_HASH=$(find Sources Tests -name "*.swift" -exec sha256sum {} \; | sha256sum | cut -d' ' -f1)
+          PKG_HASH="${{ hashFiles('**/Package.swift', '**/Package.resolved') }}"
+          
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+          echo "pkg_hash=$PKG_HASH" >> $GITHUB_OUTPUT
+          echo "spm_key=${{ runner.os }}-spm-$PKG_HASH" >> $GITHUB_OUTPUT
+          echo "build_key=${{ runner.os }}-test-build-$SOURCE_HASH" >> $GITHUB_OUTPUT
+          echo "results_key=${{ runner.os }}-test-results-$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache Swift Package Manager Dependencies
         uses: actions/cache@v4
         with:
-          path: .build
-          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.swift') }}
+          path: |
+            .build/repositories
+            .build/artifacts
+            .build/workspace-state.json
+          key: ${{ steps.cache-keys.outputs.spm_key }}
           restore-keys: |
             ${{ runner.os }}-spm-
+
+      - name: Cache Test Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/arm64-apple-macosx/debug/*.build
+            .build/arm64-apple-macosx/debug/ModuleCache
+            .build/arm64-apple-macosx/debug/index
+          key: ${{ steps.cache-keys.outputs.build_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-build-
 
       - name: Install SwiftLint
         run: brew install swiftlint
@@ -35,10 +62,64 @@ jobs:
       - name: Build Project
         run: swift build -Xswiftc -DCI_BUILD
 
-      - name: Run Tests with Coverage
+      - name: Cache Test Results
+        uses: actions/cache@v4
+        with:
+          path: .test-cache/
+          key: ${{ steps.cache-keys.outputs.results_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-results-
+
+      - name: Run Cached Tests with Coverage
         run: |
+          # Install jq for JSON processing
+          brew install jq
+          
+          # Make scripts executable
+          chmod +x scripts/cached-test-runner.sh
           chmod +x scripts/generate-coverage.sh
-          ./scripts/generate-coverage.sh
+          
+          # Run tests with intelligent caching
+          ./scripts/cached-test-runner.sh \
+            --source-hash "${{ steps.cache-keys.outputs.source_hash }}" \
+            --coverage \
+            --timeout 180 \
+            --verbose
+
+      - name: Generate Coverage Report
+        if: success() || failure()
+        run: |
+          # Generate coverage if tests were actually run (not from cache)
+          if [ ! -f coverage/coverage-summary.txt ]; then
+            echo "📊 Generating coverage report..."
+            ./scripts/generate-coverage.sh
+          else
+            echo "✅ Coverage report already available"
+          fi
+
+      - name: Cache Performance Report
+        run: |
+          echo "## 📊 Test Cache Performance" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if we used cached results
+          if [ -f .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json ]; then
+            CACHE_STATUS=$(jq -r '.results.status // "unknown"' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            EXECUTION_TIME=$(jq -r '.results.execution_time // 0' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            TOTAL_TESTS=$(jq -r '.results.total_tests // 0' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            TEST_SCOPE=$(jq -r '.test_scope // "unknown"' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            CACHE_TIMESTAMP=$(jq -r '.timestamp // "unknown"' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            
+            echo "- **Test Execution**: Cached results used" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cache Status**: $CACHE_STATUS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Test Scope**: $TEST_SCOPE" >> $GITHUB_STEP_SUMMARY
+            echo "- **Execution Time**: ${EXECUTION_TIME}s" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Tests**: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cached At**: $CACHE_TIMESTAMP" >> $GITHUB_STEP_SUMMARY
+            echo "- **Source Hash**: ${{ steps.cache-keys.outputs.source_hash }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Test Execution**: Fresh run (no cache available)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Source Hash**: ${{ steps.cache-keys.outputs.source_hash }}" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4

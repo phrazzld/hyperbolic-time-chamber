@@ -82,8 +82,13 @@ This project enforces code quality through automated checks:
 - **Compilation Check**: Verifies staged Swift files compile successfully
 - **Fast Execution**: Uses lightweight checks (< 10 seconds) to avoid slowing commits
 
-### Test Execution Monitoring
+### Test Execution Monitoring & Caching
 - **Environment-Aware Execution**: CI uses sequential execution, local uses parallel
+- **Intelligent Test Caching**: Automated caching of test results for unchanged code
+  - **Build Artifact Caching**: Swift compilation artifacts cached between CI runs
+  - **Test Result Caching**: Complete test results cached with source hash validation
+  - **Selective Test Execution**: Only run tests affected by changed files
+  - **Cache Validation**: 7-day cache TTL with environment and version checks
 - **Timeout Warning System**: Proactive warnings at 75% and 100% of timeout thresholds
   - **CI Environment**: Early warning at 67.5s, final warning at 90s
   - **Local Environment**: Early warning at 135s, final warning at 180s
@@ -106,6 +111,12 @@ swiftlint --fix
 
 # Test with timeout monitoring
 ./scripts/run-tests.sh --verbose
+
+# Test with intelligent caching (automatically detects changes)
+./scripts/cached-test-runner.sh --verbose
+
+# Force fresh test run (ignore cache)
+./scripts/cached-test-runner.sh --force-full --coverage
 
 # Test full build
 ./run.sh

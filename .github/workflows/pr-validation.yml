@@ -261,18 +261,53 @@ jobs:
           # Clean up log
           rm -f debug_build.log
 
-      - name: Run Tests with Timeout
+      - name: Generate Cache Keys
+        id: cache-keys
         run: |
-          echo "🧪 Running comprehensive test suite with ${{ matrix.name }}..."
+          # Generate cache keys for test artifacts
+          SOURCE_HASH=$(find Sources Tests -name "*.swift" -exec sha256sum {} \; | sha256sum | cut -d' ' -f1)
+          PKG_HASH="${{ hashFiles('**/Package.swift', '**/Package.resolved') }}"
+          
+          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+          echo "build_key=${{ runner.os }}-test-build-$SOURCE_HASH-${{ matrix.xcode-version }}" >> $GITHUB_OUTPUT
+          echo "results_key=${{ runner.os }}-test-results-$SOURCE_HASH-${{ matrix.xcode-version }}" >> $GITHUB_OUTPUT
+
+      - name: Cache Test Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/arm64-apple-macosx/debug/*.build
+            .build/arm64-apple-macosx/debug/ModuleCache
+            .build/arm64-apple-macosx/debug/index
+          key: ${{ steps.cache-keys.outputs.build_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-build-
+
+      - name: Cache Test Results
+        uses: actions/cache@v4
+        with:
+          path: .test-cache/
+          key: ${{ steps.cache-keys.outputs.results_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-results-
+
+      - name: Run Cached Tests with Timeout
+        run: |
+          echo "🧪 Running cached test suite with ${{ matrix.name }}..."
           echo "📱 Supporting iOS ${{ matrix.ios-target }}+ runtime environment"
           
-          # Install GNU timeout for macOS runners (required by run-tests.sh)
-          brew install coreutils
+          # Install dependencies for cached test runner
+          brew install coreutils jq
           
-          # Use centralized test execution script that respects TestConfiguration
-          # This ensures sequential execution in CI for better resource management
+          # Make scripts executable
+          chmod +x scripts/cached-test-runner.sh
           chmod +x scripts/run-tests.sh
-          ./scripts/run-tests.sh --timeout 180
+          
+          # Use cached test execution with environment-aware settings
+          ./scripts/cached-test-runner.sh \
+            --source-hash "${{ steps.cache-keys.outputs.source_hash }}" \
+            --timeout 180 \
+            --verbose
 
       - name: Verify Test Coverage
         run: |
