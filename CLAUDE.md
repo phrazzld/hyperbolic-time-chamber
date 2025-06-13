@@ -82,6 +82,14 @@ This project enforces code quality through automated checks:
 - **Compilation Check**: Verifies staged Swift files compile successfully
 - **Fast Execution**: Uses lightweight checks (< 10 seconds) to avoid slowing commits
 
+### Test Execution Monitoring
+- **Environment-Aware Execution**: CI uses sequential execution, local uses parallel
+- **Timeout Warning System**: Proactive warnings at 75% and 100% of timeout thresholds
+  - **CI Environment**: Early warning at 67.5s, final warning at 90s
+  - **Local Environment**: Early warning at 135s, final warning at 180s
+- **Real-Time Monitoring**: Continuous tracking of test execution with actionable guidance
+- **Comprehensive Reporting**: Post-execution statistics including timeout threshold analysis
+
 ### Setup for New Team Members
 Run `./scripts/setup-git-hooks.sh` to automatically install all quality gates.
 
@@ -95,6 +103,9 @@ swiftlint
 
 # Auto-fix style violations
 swiftlint --fix
+
+# Test with timeout monitoring
+./scripts/run-tests.sh --verbose
 
 # Test full build
 ./run.sh

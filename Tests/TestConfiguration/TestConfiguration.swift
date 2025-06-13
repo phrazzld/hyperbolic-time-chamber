@@ -95,6 +95,21 @@ public struct TestConfiguration {
         isCI ? 90.0 : 180.0
     }
 
+    /// Early warning threshold (percentage of testWarningThreshold)
+    public var earlyWarningPercent: Double {
+        0.75 // Warn at 75% of the timeout threshold
+    }
+
+    /// Early warning threshold in seconds
+    public var earlyWarningThreshold: TimeInterval {
+        testWarningThreshold * earlyWarningPercent
+    }
+
+    /// Interval for checking timeout warnings during test execution
+    public var timeoutCheckInterval: TimeInterval {
+        isCI ? 5.0 : 10.0 // Check every 5s in CI, 10s locally
+    }
+
     // MARK: - Parallelization
 
     /// Maximum parallel test execution workers

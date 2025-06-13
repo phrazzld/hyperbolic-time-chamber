@@ -24,11 +24,23 @@ if [ -z "$remote" ]; then
     exit 0
 fi
 
-# Run all unit tests
+# Run all unit tests using centralized script
 echo "📋 Executing test suite..."
 
-TEST_OUTPUT=$(swift test 2>&1)
-TEST_EXIT_CODE=$?
+# Use centralized test script for consistent parallelization behavior
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TEST_SCRIPT="$SCRIPT_DIR/../run-tests.sh"
+
+if [ -f "$TEST_SCRIPT" ]; then
+    # Use centralized script with verbose output for debugging
+    TEST_OUTPUT=$("$TEST_SCRIPT" --verbose 2>&1)
+    TEST_EXIT_CODE=$?
+else
+    # Fallback to direct swift test if script not found
+    echo -e "${YELLOW}⚠️  run-tests.sh not found, using fallback${NC}"
+    TEST_OUTPUT=$(swift test 2>&1)
+    TEST_EXIT_CODE=$?
+fi
 
 if [ $TEST_EXIT_CODE -eq 0 ]; then
     # Parse test results for summary
@@ -43,7 +55,7 @@ else
     echo "$TEST_OUTPUT"
     echo
     echo -e "${YELLOW}💡 Fix failing tests before pushing:${NC}"
-    echo "   - Run 'swift test' to see detailed test failures"
+    echo "   - Run './scripts/run-tests.sh' to see detailed test failures"
     echo "   - Fix the failing tests locally"
     echo "   - Commit your fixes and try pushing again"
     echo

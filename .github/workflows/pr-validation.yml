@@ -266,29 +266,21 @@ jobs:
           echo "🧪 Running comprehensive test suite with ${{ matrix.name }}..."
           echo "📱 Supporting iOS ${{ matrix.ios-target }}+ runtime environment"
           
-          # Install GNU timeout for macOS runners
+          # Install GNU timeout for macOS runners (required by run-tests.sh)
           brew install coreutils
           
-          # Use gtimeout to prevent hanging tests (matching local pre-push hook)
-          # Pass CI_BUILD flag to exclude stress tests during compilation
-          gtimeout 180s swift test --parallel -Xswiftc -DCI_BUILD || {
-            exit_code=$?
-            if [ $exit_code -eq 124 ]; then
-              echo "❌ Tests timed out after 180 seconds with ${{ matrix.name }}"
-              echo "This may indicate hanging tests or performance issues"
-              exit 1
-            else
-              echo "❌ Tests failed with ${{ matrix.name }} (code: $exit_code)"
-              exit $exit_code
-            fi
-          }
+          # Use centralized test execution script that respects TestConfiguration
+          # This ensures sequential execution in CI for better resource management
+          chmod +x scripts/run-tests.sh
+          ./scripts/run-tests.sh --timeout 180
 
       - name: Verify Test Coverage
         run: |
           echo "📊 Analyzing test results with ${{ matrix.name }}..."
           
           # Run tests again with verbose output to get detailed results
-          swift test -Xswiftc -DCI_BUILD 2>&1 | tee test_output.log
+          # Use centralized script for consistency with main test execution
+          ./scripts/run-tests.sh --verbose 2>&1 | tee test_output.log
 
           # Extract test count
           total_tests=$(grep -o "Executed [0-9]* tests" test_output.log | \
