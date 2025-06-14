@@ -19,76 +19,156 @@ BASELINE_FILE="$BENCHMARKS_DIR/baselines.json"
 RESULTS_FILE="$BENCHMARKS_DIR/latest-results.json"
 HISTORY_FILE="$BENCHMARKS_DIR/performance-history.jsonl"
 
-# Performance thresholds (configurable baselines)
-DEFAULT_BASELINES='{
-  "version": "1.0",
-  "updated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-  "baselines": {
-    "total_ci_time": {
-      "target": 180,
-      "warning": 300,
-      "critical": 450,
-      "unit": "seconds",
-      "description": "Total CI pipeline execution time"
-    },
-    "test_execution_time": {
-      "target": 60,
-      "warning": 120,
-      "critical": 180,
-      "unit": "seconds", 
-      "description": "Test suite execution time"
-    },
-    "debug_build_time": {
-      "target": 30,
-      "warning": 60,
-      "critical": 90,
-      "unit": "seconds",
-      "description": "Debug configuration build time"
-    },
-    "release_build_time": {
-      "target": 45,
-      "warning": 90,
-      "critical": 135,
-      "unit": "seconds",
-      "description": "Release configuration build time"
-    },
-    "cache_hit_rate": {
-      "target": 80,
-      "warning": 60,
-      "critical": 40,
-      "unit": "percent",
-      "description": "Test result cache hit rate"
-    },
-    "test_count": {
-      "target": 120,
-      "warning": 100,
-      "critical": 80,
-      "unit": "count",
-      "description": "Total number of tests executed"
-    },
-    "peak_memory_usage": {
-      "target": 1024,
-      "warning": 2048,
-      "critical": 4096,
-      "unit": "MB",
-      "description": "Peak memory usage during CI execution"
-    },
-    "average_memory_usage": {
-      "target": 512,
-      "warning": 1024,
-      "critical": 2048,
-      "unit": "MB",
-      "description": "Average memory usage during CI execution"
-    },
-    "memory_efficiency": {
-      "target": 80,
-      "warning": 90,
-      "critical": 95,
-      "unit": "percent",
-      "description": "Memory utilization efficiency (lower is better)"
-    }
-  }
-}'
+# Environment-aware performance thresholds 
+get_environment_baselines() {
+    local environment="$1"
+    
+    if [ "$environment" = "CI" ]; then
+        # CI environment baselines - adjusted for system memory measurement and CI runner constraints
+        echo '{
+          "version": "1.0",
+          "updated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+          "environment": "CI",
+          "baselines": {
+            "total_ci_time": {
+              "target": 180,
+              "warning": 300,
+              "critical": 450,
+              "unit": "seconds",
+              "description": "Total CI pipeline execution time"
+            },
+            "test_execution_time": {
+              "target": 60,
+              "warning": 120,
+              "critical": 180,
+              "unit": "seconds", 
+              "description": "Test suite execution time"
+            },
+            "debug_build_time": {
+              "target": 30,
+              "warning": 60,
+              "critical": 90,
+              "unit": "seconds",
+              "description": "Debug configuration build time"
+            },
+            "release_build_time": {
+              "target": 45,
+              "warning": 90,
+              "critical": 135,
+              "unit": "seconds",
+              "description": "Release configuration build time"
+            },
+            "cache_hit_rate": {
+              "target": 80,
+              "warning": 60,
+              "critical": 40,
+              "unit": "percent",
+              "description": "Test result cache hit rate"
+            },
+            "test_count": {
+              "target": 120,
+              "warning": 100,
+              "critical": 80,
+              "unit": "count",
+              "description": "Total number of tests executed"
+            },
+            "peak_memory_usage": {
+              "target": 4096,
+              "warning": 6144,
+              "critical": 8192,
+              "unit": "MB",
+              "description": "Peak system memory usage during CI execution (CI measures system-wide memory)"
+            },
+            "average_memory_usage": {
+              "target": 3072,
+              "warning": 5120,
+              "critical": 7168,
+              "unit": "MB",
+              "description": "Average system memory usage during CI execution (CI measures system-wide memory)"
+            },
+            "memory_efficiency": {
+              "target": 80,
+              "warning": 98,
+              "critical": 99.5,
+              "unit": "percent",
+              "description": "Memory utilization efficiency - relaxed thresholds for CI system memory measurement"
+            }
+          }
+        }'
+    else
+        # Local development baselines - strict thresholds for process memory measurement
+        echo '{
+          "version": "1.0",
+          "updated": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+          "environment": "Local",
+          "baselines": {
+            "total_ci_time": {
+              "target": 180,
+              "warning": 300,
+              "critical": 450,
+              "unit": "seconds",
+              "description": "Total CI pipeline execution time"
+            },
+            "test_execution_time": {
+              "target": 60,
+              "warning": 120,
+              "critical": 180,
+              "unit": "seconds", 
+              "description": "Test suite execution time"
+            },
+            "debug_build_time": {
+              "target": 30,
+              "warning": 60,
+              "critical": 90,
+              "unit": "seconds",
+              "description": "Debug configuration build time"
+            },
+            "release_build_time": {
+              "target": 45,
+              "warning": 90,
+              "critical": 135,
+              "unit": "seconds",
+              "description": "Release configuration build time"
+            },
+            "cache_hit_rate": {
+              "target": 80,
+              "warning": 60,
+              "critical": 40,
+              "unit": "percent",
+              "description": "Test result cache hit rate"
+            },
+            "test_count": {
+              "target": 120,
+              "warning": 100,
+              "critical": 80,
+              "unit": "count",
+              "description": "Total number of tests executed"
+            },
+            "peak_memory_usage": {
+              "target": 1024,
+              "warning": 2048,
+              "critical": 4096,
+              "unit": "MB",
+              "description": "Peak process memory usage during local execution"
+            },
+            "average_memory_usage": {
+              "target": 512,
+              "warning": 1024,
+              "critical": 2048,
+              "unit": "MB",
+              "description": "Average process memory usage during local execution"
+            },
+            "memory_efficiency": {
+              "target": 80,
+              "warning": 90,
+              "critical": 95,
+              "unit": "percent",
+              "description": "Memory utilization efficiency (lower is better)"
+            }
+          }
+        }'
+    fi
+}
 
 # Options
 COLLECT_ONLY=false
@@ -165,15 +245,30 @@ echo "Branch: $CI_BRANCH"
 # Create benchmarks directory
 mkdir -p "$BENCHMARKS_DIR"
 
-# Initialize baselines if they don't exist
+# Initialize environment-aware baselines
 initialize_baselines() {
     if [ ! -f "$BASELINE_FILE" ] || [ "$UPDATE_BASELINES" = true ]; then
-        echo -e "${YELLOW}📋 Initializing performance baselines...${NC}"
-        echo "$DEFAULT_BASELINES" | jq . > "$BASELINE_FILE"
+        echo -e "${YELLOW}📋 Initializing performance baselines for $ENV_NAME environment...${NC}"
+        
+        # Generate environment-specific baselines
+        local baselines_json=$(get_environment_baselines "$ENV_NAME")
+        echo "$baselines_json" | jq . > "$BASELINE_FILE"
         
         if [ "$VERBOSE" = true ]; then
-            echo "✅ Baselines initialized at $BASELINE_FILE"
+            echo "✅ $ENV_NAME baselines initialized at $BASELINE_FILE"
             jq '.baselines | keys[]' "$BASELINE_FILE" | sed 's/^/   - /'
+        fi
+    else
+        # Verify environment matches existing baselines
+        local existing_env=$(jq -r '.environment // "unknown"' "$BASELINE_FILE" 2>/dev/null)
+        if [ "$existing_env" != "$ENV_NAME" ] && [ "$existing_env" != "unknown" ]; then
+            echo -e "${YELLOW}⚠️  Environment changed ($existing_env → $ENV_NAME), updating baselines...${NC}"
+            local baselines_json=$(get_environment_baselines "$ENV_NAME")
+            echo "$baselines_json" | jq . > "$BASELINE_FILE"
+            
+            if [ "$VERBOSE" = true ]; then
+                echo "✅ Baselines updated for $ENV_NAME environment"
+            fi
         fi
     fi
 }

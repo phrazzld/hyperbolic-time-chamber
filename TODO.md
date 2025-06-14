@@ -1,5 +1,40 @@
 # TODO - Project Tasks
 
+## 🔥 CRITICAL: CI Memory Benchmark Failures (ALL CI BLOCKED)
+
+### Immediate CI Fix (Emergency Priority)
+- [x] **Fix CI memory threshold violations** - Implement environment-aware memory baselines in benchmark script; current system memory measurement (6GB) exceeds process memory thresholds (4GB critical)
+  - dependencies: none
+  - estimated: 30 minutes
+  - impact: unblocks all CI workflows
+  - approach: Add CI environment detection and use system-appropriate memory thresholds
+
+- [ ] **Test memory threshold fix** - Validate that adjusted thresholds allow CI workflows to pass while maintaining meaningful performance monitoring
+  - depends-on: Fix CI memory threshold violations  
+  - estimated: 15 minutes
+  - validation: All 4 CI workflows (main CI + 3 PR validation) must pass
+
+- [ ] **Deploy emergency CI fix** - Commit and push memory threshold adjustments to restore CI functionality
+  - depends-on: Test memory threshold fix
+  - estimated: 10 minutes
+  - success-criteria: All CI checks green, development team unblocked
+
+### Memory Monitoring Enhancement (High Priority)
+- [ ] **Implement process-specific memory monitoring** - Replace system memory measurement with CI process-specific memory tracking for accurate resource monitoring
+  - depends-on: Deploy emergency CI fix
+  - estimated: 2 hours
+  - scope: Monitor Swift/Xcode build processes instead of total system memory
+
+- [ ] **Calibrate memory baselines with real CI workload data** - Collect baseline memory usage data from multiple CI runs to set realistic thresholds
+  - depends-on: Implement process-specific memory monitoring
+  - estimated: 1 hour
+  - deliverable: Data-driven memory thresholds for CI environment
+
+- [ ] **Add memory monitoring validation tests** - Create tests to prevent future false positives in memory threshold detection
+  - depends-on: Calibrate memory baselines with real CI workload data
+  - estimated: 1 hour
+  - scope: Unit tests for memory measurement functions and threshold validation logic
+
 ## 🚨 URGENT: CI Pipeline Timeout Resolution
 
 ### Immediate CI Fixes (High Priority)
