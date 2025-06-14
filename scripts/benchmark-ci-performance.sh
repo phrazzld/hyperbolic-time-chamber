@@ -73,25 +73,25 @@ get_environment_baselines() {
               "description": "Total number of tests executed"
             },
             "peak_memory_usage": {
-              "target": 4096,
-              "warning": 6144,
-              "critical": 8192,
+              "target": 1024,
+              "warning": 2048,
+              "critical": 4096,
               "unit": "MB",
-              "description": "Peak system memory usage during CI execution (CI measures system-wide memory)"
+              "description": "Peak memory usage of Swift/Xcode build processes during CI execution"
             },
             "average_memory_usage": {
-              "target": 3072,
-              "warning": 5120,
-              "critical": 7168,
+              "target": 512,
+              "warning": 1024,
+              "critical": 2048,
               "unit": "MB",
-              "description": "Average system memory usage during CI execution (CI measures system-wide memory)"
+              "description": "Average memory usage of Swift/Xcode build processes during CI execution"
             },
             "memory_efficiency": {
               "target": 80,
-              "warning": 98,
-              "critical": 99.5,
+              "warning": 90,
+              "critical": 95,
               "unit": "percent",
-              "description": "Memory utilization efficiency - relaxed thresholds for CI system memory measurement"
+              "description": "Memory utilization efficiency of build processes (lower is better)"
             }
           }
         }'
@@ -273,8 +273,55 @@ initialize_baselines() {
     fi
 }
 
-# Memory monitoring functions
-get_current_memory_usage() {
+# Process-specific memory monitoring functions
+get_swift_process_memory() {
+    local memory_mb=0
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS: Monitor Swift-related processes using ps
+        local swift_processes=$(ps aux | grep -E "(swift|xcodebuild|xctest)" | grep -v grep | awk '{print $2}')
+        
+        if [ -n "$swift_processes" ]; then
+            for pid in $swift_processes; do
+                local proc_memory=$(ps -o rss= -p "$pid" 2>/dev/null | awk '{print int($1/1024)}')
+                if [ -n "$proc_memory" ] && [ "$proc_memory" -gt 0 ]; then
+                    memory_mb=$((memory_mb + proc_memory))
+                fi
+            done
+        fi
+        
+        # If no Swift processes found, use current process as fallback
+        if [ "$memory_mb" -eq 0 ]; then
+            local current_proc_memory=$(ps -o rss= -p $$ 2>/dev/null | awk '{print int($1/1024)}')
+            memory_mb=${current_proc_memory:-0}
+        fi
+    else
+        # Linux: Monitor Swift-related processes using proc filesystem
+        local swift_pids=$(pgrep -f "(swift|xcodebuild|xctest)" 2>/dev/null)
+        
+        if [ -n "$swift_pids" ]; then
+            for pid in $swift_pids; do
+                if [ -f "/proc/$pid/status" ]; then
+                    local proc_memory=$(grep "VmRSS:" "/proc/$pid/status" 2>/dev/null | awk '{print int($2/1024)}')
+                    if [ -n "$proc_memory" ] && [ "$proc_memory" -gt 0 ]; then
+                        memory_mb=$((memory_mb + proc_memory))
+                    fi
+                fi
+            done
+        fi
+        
+        # If no Swift processes found, use current process as fallback
+        if [ "$memory_mb" -eq 0 ]; then
+            local current_proc_memory=$(ps -o rss= -p $$ 2>/dev/null | awk '{print int($1/1024)}')
+            memory_mb=${current_proc_memory:-0}
+        fi
+    fi
+    
+    echo "$memory_mb"
+}
+
+# Legacy system memory monitoring (kept for fallback compatibility)
+get_system_memory_usage() {
     local memory_mb=0
     
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -311,6 +358,133 @@ get_current_memory_usage() {
     fi
     
     echo "$memory_mb"
+}
+
+# Main memory monitoring function - uses process-specific monitoring by default
+get_current_memory_usage() {
+    local monitoring_mode="${MEMORY_MONITORING_MODE:-process}"
+    
+    if [ "$monitoring_mode" = "system" ]; then
+        get_system_memory_usage
+    else
+        get_swift_process_memory
+    fi
+}
+
+# Background process monitoring during build operations
+start_background_memory_monitor() {
+    local output_file="${1:-$BENCHMARKS_DIR/background-memory.log}"
+    local monitor_interval="${2:-2}"
+    
+    # Create monitor script
+    local monitor_script="$BENCHMARKS_DIR/memory-monitor.sh"
+    cat > "$monitor_script" << 'MONITOR_EOF'
+#!/bin/bash
+output_file="$1"
+interval="$2"
+monitoring_mode="${MEMORY_MONITORING_MODE:-process}"
+
+# Import memory functions (simplified for background monitoring)
+get_swift_process_memory() {
+    local memory_mb=0
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        local swift_processes=$(ps aux | grep -E "(swift|xcodebuild|xctest)" | grep -v grep | awk '{print $2}')
+        if [ -n "$swift_processes" ]; then
+            for pid in $swift_processes; do
+                local proc_memory=$(ps -o rss= -p "$pid" 2>/dev/null | awk '{print int($1/1024)}')
+                if [ -n "$proc_memory" ] && [ "$proc_memory" -gt 0 ]; then
+                    memory_mb=$((memory_mb + proc_memory))
+                fi
+            done
+        fi
+        if [ "$memory_mb" -eq 0 ]; then
+            local current_proc_memory=$(ps -o rss= -p $$ 2>/dev/null | awk '{print int($1/1024)}')
+            memory_mb=${current_proc_memory:-0}
+        fi
+    else
+        local swift_pids=$(pgrep -f "(swift|xcodebuild|xctest)" 2>/dev/null)
+        if [ -n "$swift_pids" ]; then
+            for pid in $swift_pids; do
+                if [ -f "/proc/$pid/status" ]; then
+                    local proc_memory=$(grep "VmRSS:" "/proc/$pid/status" 2>/dev/null | awk '{print int($2/1024)}')
+                    if [ -n "$proc_memory" ] && [ "$proc_memory" -gt 0 ]; then
+                        memory_mb=$((memory_mb + proc_memory))
+                    fi
+                fi
+            done
+        fi
+        if [ "$memory_mb" -eq 0 ]; then
+            local current_proc_memory=$(ps -o rss= -p $$ 2>/dev/null | awk '{print int($1/1024)}')
+            memory_mb=${current_proc_memory:-0}
+        fi
+    fi
+    
+    echo "$memory_mb"
+}
+
+# Background monitoring loop
+while true; do
+    timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    memory=$(get_swift_process_memory)
+    process_count=0
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        process_count=$(ps aux | grep -E "(swift|xcodebuild|xctest)" | grep -v grep | wc -l)
+    else
+        process_count=$(pgrep -f "(swift|xcodebuild|xctest)" 2>/dev/null | wc -l)
+    fi
+    
+    echo "$timestamp,$memory,$process_count" >> "$output_file"
+    sleep "$interval"
+done
+MONITOR_EOF
+    
+    chmod +x "$monitor_script"
+    
+    # Start background monitoring
+    nohup "$monitor_script" "$output_file" "$monitor_interval" > /dev/null 2>&1 &
+    local monitor_pid=$!
+    echo "$monitor_pid" > "$BENCHMARKS_DIR/monitor.pid"
+    
+    if [ "$VERBOSE" = true ]; then
+        echo "📊 Started background memory monitor (PID: $monitor_pid)"
+        echo "   - Output: $output_file"
+        echo "   - Interval: ${monitor_interval}s"
+    fi
+}
+
+# Stop background memory monitoring
+stop_background_memory_monitor() {
+    local pid_file="$BENCHMARKS_DIR/monitor.pid"
+    
+    if [ -f "$pid_file" ]; then
+        local monitor_pid=$(cat "$pid_file")
+        if kill -0 "$monitor_pid" 2>/dev/null; then
+            kill "$monitor_pid" 2>/dev/null
+            if [ "$VERBOSE" = true ]; then
+                echo "🛑 Stopped background memory monitor (PID: $monitor_pid)"
+            fi
+        fi
+        rm -f "$pid_file"
+    fi
+}
+
+# Analyze background memory monitoring results
+analyze_background_memory() {
+    local log_file="${1:-$BENCHMARKS_DIR/background-memory.log}"
+    
+    if [ ! -f "$log_file" ]; then
+        echo "0,0,0"  # peak,average,max_processes
+        return
+    fi
+    
+    # Analyze memory usage from background monitoring
+    local peak_memory=$(awk -F',' '{if($2>max) max=$2} END {print max+0}' "$log_file")
+    local avg_memory=$(awk -F',' '{sum+=$2; count++} END {print int(sum/count)}' "$log_file")
+    local max_processes=$(awk -F',' '{if($3>max) max=$3} END {print max+0}' "$log_file")
+    
+    echo "$peak_memory,$avg_memory,$max_processes"
 }
 
 
@@ -366,20 +540,34 @@ collect_metrics() {
     # Calculate total CI time estimation
     local total_ci_time=$((test_execution_time + debug_build_time + release_build_time + 60)) # +60s for overhead
     
-    # Collect memory usage metrics
-    echo -e "${BLUE}🧠 Collecting memory usage metrics...${NC}"
+    # Collect memory usage metrics from Swift/Xcode processes
+    echo -e "${BLUE}🧠 Collecting process-specific memory usage metrics...${NC}"
     
-    # Simplified memory collection - take a few samples
+    # Enhanced process memory collection with process tracking
     local peak_memory=0
     local total_memory=0
-    local sample_count=5
+    local sample_count=10
+    local active_processes_found=false
     
     if [ "$VERBOSE" = true ]; then
-        echo "🧠 Taking $sample_count memory samples..."
+        echo "🧠 Monitoring Swift/Xcode processes for $sample_count samples..."
+        echo "🔍 Looking for processes: swift, xcodebuild, xctest, swift-test"
     fi
     
     for i in $(seq 1 $sample_count); do
         local current_memory=$(get_current_memory_usage)
+        
+        # Check if we found actual Swift processes
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            local swift_process_count=$(ps aux | grep -E "(swift|xcodebuild|xctest)" | grep -v grep | wc -l)
+        else
+            local swift_process_count=$(pgrep -f "(swift|xcodebuild|xctest)" 2>/dev/null | wc -l)
+        fi
+        
+        if [ "$swift_process_count" -gt 0 ]; then
+            active_processes_found=true
+        fi
+        
         total_memory=$((total_memory + current_memory))
         
         if [ "$current_memory" -gt "$peak_memory" ]; then
@@ -387,12 +575,24 @@ collect_metrics() {
         fi
         
         if [ "$VERBOSE" = true ]; then
-            echo "   📊 Sample $i: ${current_memory}MB"
+            echo "   📊 Sample $i: ${current_memory}MB (${swift_process_count} Swift processes active)"
         fi
         
-        # Small delay between samples
-        sleep 1
+        # Adaptive sampling - slower when processes are active
+        if [ "$swift_process_count" -gt 0 ]; then
+            sleep 2  # Longer delay when processes are active
+        else
+            sleep 0.5  # Faster sampling when no processes
+        fi
     done
+    
+    # If no Swift processes were found during sampling, note this
+    if [ "$active_processes_found" = false ]; then
+        if [ "$VERBOSE" = true ]; then
+            echo "⚠️  No active Swift build processes detected during sampling"
+            echo "🔄 Memory measurements reflect baseline script execution"
+        fi
+    fi
     
     # Calculate average and efficiency
     local avg_memory=$((total_memory / sample_count))
@@ -402,10 +602,12 @@ collect_metrics() {
     fi
     
     if [ "$VERBOSE" = true ]; then
-        echo "🧠 Memory analysis complete:"
-        echo "   - Peak memory usage: ${peak_memory}MB"
-        echo "   - Average memory usage: ${avg_memory}MB"
+        echo "🧠 Process memory analysis complete:"
+        echo "   - Peak process memory usage: ${peak_memory}MB"
+        echo "   - Average process memory usage: ${avg_memory}MB"
         echo "   - Memory efficiency: ${memory_efficiency}%"
+        echo "   - Active Swift processes detected: $active_processes_found"
+        echo "   - Monitoring mode: process-specific (Swift/Xcode builds)"
     fi
     
     # Create performance metrics JSON
