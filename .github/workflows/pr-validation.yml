@@ -268,13 +268,10 @@ jobs:
       - name: Generate Cache Keys
         id: cache-keys
         run: |
-          # Generate cache keys for test artifacts
-          SOURCE_HASH=$(find Sources Tests -name "*.swift" -exec sha256sum {} \; | sha256sum | cut -d' ' -f1)
-          PKG_HASH="${{ hashFiles('**/Package.swift', '**/Package.resolved') }}"
-          
-          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
-          echo "build_key=${{ runner.os }}-test-build-$SOURCE_HASH-${{ matrix.xcode-version }}" >> $GITHUB_OUTPUT
-          echo "results_key=${{ runner.os }}-test-results-$SOURCE_HASH-${{ matrix.xcode-version }}" >> $GITHUB_OUTPUT
+          # Generate cache keys for test artifacts using GitHub Actions hashFiles()
+          echo "source_hash=${{ hashFiles('Sources/**/*.swift', 'Tests/**/*.swift') }}" >> $GITHUB_OUTPUT
+          echo "build_key=${{ runner.os }}-test-build-${{ hashFiles('Sources/**/*.swift', 'Tests/**/*.swift') }}-${{ matrix.xcode-version }}" >> $GITHUB_OUTPUT
+          echo "results_key=${{ runner.os }}-test-results-${{ hashFiles('Sources/**/*.swift', 'Tests/**/*.swift') }}-${{ matrix.xcode-version }}" >> $GITHUB_OUTPUT
 
       - name: Cache Test Build Artifacts
         uses: actions/cache@v4

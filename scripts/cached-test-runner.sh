@@ -89,7 +89,20 @@ if [ -z "$SOURCE_HASH" ]; then
     if [ "$VERBOSE" = true ]; then
         echo "🔍 Generating source hash..."
     fi
-    SOURCE_HASH=$(find Sources Tests -name "*.swift" -exec sha256sum {} \; 2>/dev/null | sha256sum | cut -d' ' -f1 || echo "fallback-$(date +%s)")
+    
+    # Platform-specific hash command detection
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - use shasum
+        HASH_CMD="shasum -a 256"
+        HASH_EXTRACT_CMD="cut -d' ' -f1"
+    else
+        # Linux - use sha256sum
+        HASH_CMD="sha256sum"
+        HASH_EXTRACT_CMD="cut -d' ' -f1"
+    fi
+    
+    # Generate hash with platform-appropriate command
+    SOURCE_HASH=$(find Sources Tests -name "*.swift" -exec $HASH_CMD {} \; 2>/dev/null | $HASH_CMD | $HASH_EXTRACT_CMD || echo "fallback-$(date +%s)")
 fi
 
 CACHE_FILE="$CACHE_DIR/results-$SOURCE_HASH.json"
