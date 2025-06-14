@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 @testable import WorkoutTracker
+import TestConfiguration
 
 /// Integration tests for complete data persistence workflows
 final class CompletePersistenceWorkflowTests: XCTestCase {
@@ -42,13 +43,9 @@ final class CompletePersistenceWorkflowTests: XCTestCase {
 
     func testCompleteAddEntryPersistenceLifecycle() throws {
         // Arrange: Create sample workout entry
-        let originalEntry = ExerciseEntry(
-            exerciseName: "Integration Test Exercise",
-            date: Date(timeIntervalSince1970: 1672531200),
-            sets: [
-                ExerciseSet(reps: 10, weight: 50.0),
-                ExerciseSet(reps: 8, weight: 55.0)
-            ]
+        let originalEntry = WorkoutTestDataFactory.createFixedDateEntry(
+            name: "Integration Test Exercise",
+            timestamp: 1672531200
         )
 
         // Act 1: Add entry to ViewModel (triggers automatic save)
@@ -79,15 +76,9 @@ final class CompletePersistenceWorkflowTests: XCTestCase {
     func testCompleteDeleteEntryPersistenceLifecycle() throws {
         // Arrange: Add multiple entries
         let entries = [
-            ExerciseEntry(exerciseName: "Exercise 1",
-                          date: Date(timeIntervalSince1970: 1672531200),
-                          sets: [ExerciseSet(reps: 10, weight: 50.0)]),
-            ExerciseEntry(exerciseName: "Exercise 2",
-                          date: Date(timeIntervalSince1970: 1672531300),
-                          sets: [ExerciseSet(reps: 12, weight: 60.0)]),
-            ExerciseEntry(exerciseName: "Exercise 3",
-                          date: Date(timeIntervalSince1970: 1672531400),
-                          sets: [ExerciseSet(reps: 8, weight: 70.0)])
+            WorkoutTestDataFactory.createFixedDateEntry(name: "Exercise 1", timestamp: 1672531200),
+            WorkoutTestDataFactory.createFixedDateEntry(name: "Exercise 2", timestamp: 1672531300),
+            WorkoutTestDataFactory.createFixedDateEntry(name: "Exercise 3", timestamp: 1672531400)
         ]
 
         for entry in entries {

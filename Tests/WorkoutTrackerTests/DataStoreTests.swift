@@ -1,6 +1,7 @@
 import XCTest
 @testable import WorkoutTracker
 import Foundation
+import TestConfiguration
 
 /// Comprehensive test suite for DataStore save/load operations and error handling
 final class DataStoreTests: XCTestCase {
@@ -175,20 +176,17 @@ final class DataStoreTests: XCTestCase {
     // MARK: - Helper Methods
 
     private func createTestEntries() -> [ExerciseEntry] {
-        let set1 = ExerciseSet(reps: 10, weight: 50.0)
-        let set2 = ExerciseSet(reps: 8, weight: 55.0)
-        let set3 = ExerciseSet(reps: 15, weight: nil) // Bodyweight exercise
-
-        let entry1 = ExerciseEntry(
-            exerciseName: "Bench Press",
+        let entry1 = WorkoutTestDataFactory.createBasicEntry(
+            name: "Bench Press",
             date: Date(),
-            sets: [set1, set2]
+            setCount: 2,
+            baseReps: 10,
+            baseWeight: 50.0
         )
 
-        let entry2 = ExerciseEntry(
-            exerciseName: "Push-ups",
-            date: Date().addingTimeInterval(-3600), // 1 hour ago
-            sets: [set3]
+        let entry2 = WorkoutTestDataFactory.createBodyweightEntry(
+            name: "Push-ups",
+            date: Date().addingTimeInterval(-3600) // 1 hour ago
         )
 
         return [entry1, entry2]

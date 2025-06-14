@@ -21,7 +21,7 @@ let package = Package(
         ),
         .target(
             name: "TestConfiguration",
-            dependencies: [],
+            dependencies: ["WorkoutTracker"],
             path: "Tests/TestConfiguration",
             exclude: ["README.md"],
             resources: [
@@ -42,6 +42,21 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ],
             path: "Tests/WorkoutTrackerIntegrationTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerPerformanceTests",
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
+            path: "Tests/WorkoutTrackerPerformanceTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerComprehensiveTests",
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
+            path: "Tests/WorkoutTrackerComprehensiveTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerStressTests",
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
+            path: "Tests/WorkoutTrackerStressTests"
         )
     ]
 )
