@@ -73,18 +73,18 @@ get_environment_baselines() {
               "description": "Total number of tests executed"
             },
             "peak_memory_usage": {
-              "target": 1024,
-              "warning": 2048,
-              "critical": 4096,
+              "target": 400,
+              "warning": 700,
+              "critical": 1200,
               "unit": "MB",
-              "description": "Peak memory usage of Swift/Xcode build processes during CI execution"
+              "description": "Peak memory usage of Swift/Xcode build processes during CI execution (calibrated from real workload data)"
             },
             "average_memory_usage": {
-              "target": 512,
-              "warning": 1024,
-              "critical": 2048,
+              "target": 150,
+              "warning": 300,
+              "critical": 600,
               "unit": "MB",
-              "description": "Average memory usage of Swift/Xcode build processes during CI execution"
+              "description": "Average memory usage of Swift/Xcode build processes during CI execution (calibrated from real workload data)"
             },
             "memory_efficiency": {
               "target": 80,
@@ -145,18 +145,18 @@ get_environment_baselines() {
               "description": "Total number of tests executed"
             },
             "peak_memory_usage": {
-              "target": 1024,
-              "warning": 2048,
-              "critical": 4096,
+              "target": 245,
+              "warning": 467,
+              "critical": 734,
               "unit": "MB",
-              "description": "Peak process memory usage during local execution"
+              "description": "Peak process memory usage during local execution (calibrated from real workload data)"
             },
             "average_memory_usage": {
-              "target": 512,
-              "warning": 1024,
-              "critical": 2048,
+              "target": 100,
+              "warning": 200,
+              "critical": 400,
               "unit": "MB",
-              "description": "Average process memory usage during local execution"
+              "description": "Average process memory usage during local execution (calibrated from real workload data)"
             },
             "memory_efficiency": {
               "target": 80,
