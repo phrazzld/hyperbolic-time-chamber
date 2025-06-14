@@ -45,7 +45,7 @@ final class ExtremeLoadStressTests: XCTestCase {
 
     func testExtremeDatasetStressTest() throws {
         // This test pushes the limits to ensure the app can handle very large datasets
-        try skipIfCI(reason: "Extreme stress test excluded from CI")
+        try TestUtilities.skipIfCI(in: self, reason: "Extreme stress test excluded from CI")
 
         let entryCount = config.stressDatasetSize // 10,000 locally
 
@@ -103,7 +103,7 @@ final class ExtremeLoadStressTests: XCTestCase {
     }
 
     func testMassiveBulkOperationsStress() throws {
-        try skipIfCI(reason: "Massive bulk operations stress test excluded from CI")
+        try TestUtilities.skipIfCI(in: self, reason: "Massive bulk operations stress test excluded from CI")
 
         let entryCount = config.stressDatasetSize / 2 // 5,000 entries
         let dataset = generateExtremeDataset(count: entryCount)
@@ -136,7 +136,7 @@ final class ExtremeLoadStressTests: XCTestCase {
     }
 
     func testConcurrentOperationsStress() throws {
-        try skipIfCI(reason: "Concurrent operations stress test excluded from CI")
+        try TestUtilities.skipIfCI(in: self, reason: "Concurrent operations stress test excluded from CI")
 
         let entryCount = config.stressDatasetSize / 4 // 2,500 entries
         let dataset = generateExtremeDataset(count: entryCount)
@@ -196,7 +196,7 @@ final class ExtremeLoadStressTests: XCTestCase {
     }
 
     func testMemoryExtremeStress() throws {
-        try skipIfCI(reason: "Memory extreme stress test excluded from CI")
+        try TestUtilities.skipIfCI(in: self, reason: "Memory extreme stress test excluded from CI")
 
         NSLog("📊 Testing extreme memory stress conditions")
 
@@ -223,7 +223,7 @@ final class ExtremeLoadStressTests: XCTestCase {
                     entry.sets.contains { $0.weight != nil && ($0.weight ?? 0) > 50 }
                 }
 
-                checkMemoryUsage(operation: "extreme stress phase \(phase)")
+                TestUtilities.checkMemoryUsage(operation: "extreme stress phase \(phase)")
 
                 // Clear for next phase
                 viewModel.entries.removeAll()
@@ -231,7 +231,7 @@ final class ExtremeLoadStressTests: XCTestCase {
         }
 
         // Final memory check after all phases
-        checkMemoryUsage(operation: "post-extreme-stress")
+        TestUtilities.checkMemoryUsage(operation: "post-extreme-stress")
     }
 
     // MARK: - Helper Methods

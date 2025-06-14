@@ -44,7 +44,7 @@ final class MemoryEfficiencyTests: XCTestCase {
     // MARK: - Memory Efficiency Tests
 
     func testMemoryUsageWithMediumDataset() throws {
-        try skipIfCI(reason: "Memory efficiency test requires controlled environment")
+        try TestUtilities.skipIfCI(in: self, reason: "Memory efficiency test requires controlled environment")
 
         let entryCount = config.mediumDatasetSize // 500 locally
         let dataset = generateOptimizedDataset(count: entryCount)
@@ -69,11 +69,11 @@ final class MemoryEfficiencyTests: XCTestCase {
             XCTAssertGreaterThan(groupedEntries.count, 0, "Should group entries")
         }
 
-        checkMemoryUsage(operation: "medium dataset operations")
+        TestUtilities.checkMemoryUsage(operation: "medium dataset operations")
     }
 
     func testMemoryEfficiencyAfterBulkOperations() throws {
-        try skipIfCI(reason: "Memory efficiency test requires controlled environment")
+        try TestUtilities.skipIfCI(in: self, reason: "Memory efficiency test requires controlled environment")
 
         let entryCount = config.mediumDatasetSize
         let dataset = generateOptimizedDataset(count: entryCount)
@@ -107,11 +107,11 @@ final class MemoryEfficiencyTests: XCTestCase {
             XCTAssertNotNil(exportURL, "Export should work after deletion")
         }
 
-        checkMemoryUsage(operation: "post-bulk-deletion")
+        TestUtilities.checkMemoryUsage(operation: "post-bulk-deletion")
     }
 
     func testMemoryLeakPrevention() throws {
-        try skipIfCI(reason: "Memory leak test requires controlled environment")
+        try TestUtilities.skipIfCI(in: self, reason: "Memory leak test requires controlled environment")
 
         let entryCount = config.smallDatasetSize * 2
 
@@ -145,11 +145,11 @@ final class MemoryEfficiencyTests: XCTestCase {
             }
         }
 
-        checkMemoryUsage(operation: "leak prevention cycles")
+        TestUtilities.checkMemoryUsage(operation: "leak prevention cycles")
     }
 
     func testLargeDatasetMemoryUsage() throws {
-        try skipIfCI(reason: "Large dataset memory test requires controlled environment")
+        try TestUtilities.skipIfCI(in: self, reason: "Large dataset memory test requires controlled environment")
 
         let entryCount = config.largeDatasetSize // 1000 locally
         let dataset = generateRealisticDataset(count: entryCount)
@@ -166,12 +166,12 @@ final class MemoryEfficiencyTests: XCTestCase {
 
                     // Check memory at milestones
                     if index % 200 == 0 && index > 0 {
-                        checkMemoryUsage(operation: "loading \(index) entries")
+                        TestUtilities.checkMemoryUsage(operation: "loading \(index) entries")
                     }
                 }
 
                 // Final memory check
-                checkMemoryUsage(operation: "final large dataset")
+                TestUtilities.checkMemoryUsage(operation: "final large dataset")
 
                 // Test complex operations on large dataset
                 let complexFilter = viewModel.entries.filter { entry in
@@ -191,7 +191,7 @@ final class MemoryEfficiencyTests: XCTestCase {
     }
 
     func testMemoryRecoveryAfterLargeOperations() throws {
-        try skipIfCI(reason: "Memory recovery test requires controlled environment")
+        try TestUtilities.skipIfCI(in: self, reason: "Memory recovery test requires controlled environment")
 
         let entryCount = config.largeDatasetSize
 
@@ -212,7 +212,7 @@ final class MemoryEfficiencyTests: XCTestCase {
                 _ = Dictionary(grouping: viewModel.entries) { $0.exerciseName }
                 _ = viewModel.exportJSON()
 
-                checkMemoryUsage(operation: "after large operations")
+                TestUtilities.checkMemoryUsage(operation: "after large operations")
             }
 
             // Clear everything and check memory recovery
@@ -224,7 +224,7 @@ final class MemoryEfficiencyTests: XCTestCase {
                 viewModel.entries.append(entry)
             }
 
-            checkMemoryUsage(operation: "after memory recovery")
+            TestUtilities.checkMemoryUsage(operation: "after memory recovery")
         }
     }
 

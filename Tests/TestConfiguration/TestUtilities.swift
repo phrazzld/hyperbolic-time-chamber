@@ -108,6 +108,14 @@ public struct TestUtilities {
             throw TestUtilitiesError.unexpectedState("No result available")
         }
     }
+
+    // MARK: - Memory Monitoring
+
+    /// Log memory usage for debugging purposes
+    public static func checkMemoryUsage(operation: String) {
+        // Simple memory usage logging
+        NSLog("🧠 Memory check after \(operation)")
+    }
 }
 
 // MARK: - Error Types

@@ -45,7 +45,10 @@ final class DatasetScalabilityTests: XCTestCase {
     // MARK: - Scalability Tests
 
     func testScalabilityAcrossDifferentDatasetSizes() throws {
-        try skipIfCI(reason: "Scalability test requires larger datasets - local development only")
+        try TestUtilities.skipIfCI(
+            in: self,
+            reason: "Scalability test requires larger datasets - local development only"
+        )
 
         let sizes = [100, 500, 1000, 2500]
         var addTimes: [Double] = []
@@ -98,7 +101,7 @@ final class DatasetScalabilityTests: XCTestCase {
     }
 
     func testMemoryScalabilityWithLargeDatasets() throws {
-        try skipIfCI(reason: "Memory scalability test requires large datasets")
+        try TestUtilities.skipIfCI(in: self, reason: "Memory scalability test requires large datasets")
 
         let sizes = [500, 1500, 3000]
 
@@ -124,13 +127,13 @@ final class DatasetScalabilityTests: XCTestCase {
                     XCTAssertGreaterThan(groupedByExercise.count, 0, "Should group entries")
                 }
 
-                checkMemoryUsage(operation: "dataset size \(size)")
+                TestUtilities.checkMemoryUsage(operation: "dataset size \(size)")
             }
         }
     }
 
     func testSearchPerformanceScalability() throws {
-        try skipIfCI(reason: "Search scalability test requires large datasets")
+        try TestUtilities.skipIfCI(in: self, reason: "Search scalability test requires large datasets")
 
         let sizes = [1000, 2500, 5000]
 
@@ -167,7 +170,7 @@ final class DatasetScalabilityTests: XCTestCase {
     }
 
     func testExportScalability() throws {
-        try skipIfCI(reason: "Export scalability test requires large datasets")
+        try TestUtilities.skipIfCI(in: self, reason: "Export scalability test requires large datasets")
 
         let sizes = [500, 1500, 3000]
 

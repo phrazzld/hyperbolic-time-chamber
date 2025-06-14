@@ -73,6 +73,6 @@ final class ConfigurationExampleTests: XCTestCase {
     // MARK: - Helper Methods
 
     private func generateTestData(count: Int) -> [ExerciseEntry] {
-        WorkoutTestDataFactory.createEntries(count: count)
+        WorkoutTestDataFactory.createOptimizedDataset(count: count)
     }
 }
