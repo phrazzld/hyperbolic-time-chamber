@@ -48,10 +48,14 @@ jobs:
           path: |
             .build
             SourcePackages
-          key: ${{ runner.os }}-spm-xcode${{ matrix.xcode-version }}-${{ hashFiles('Package.swift') }}
+            ~/.cache/org.swift.swiftpm
+            .build/manifest.db
+            .build/dependencies-state.json
+          key: ${{ runner.os }}-spm-xcode${{ matrix.xcode-version }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-xcode${{ matrix.xcode-version }}-
             ${{ runner.os }}-spm-
+            ${{ runner.os }}-swift-
 
       - name: Install SwiftLint
         run: |
