@@ -5,7 +5,9 @@ import TestConfiguration
 
 /// Extreme load stress tests for local development environments only
 /// Tests app behavior under extreme conditions to find breaking points and ensure stability
-final class ExtremeLoadStressTests: StressTestCase {
+final class ExtremeLoadStressTests: XCTestCase {
+
+    let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
@@ -47,7 +49,7 @@ final class ExtremeLoadStressTests: StressTestCase {
 
         let entryCount = config.stressDatasetSize // 10,000 locally
 
-        reportProgress("Starting extreme dataset stress test with \(entryCount) entries")
+        NSLog("📊 Starting extreme dataset stress test with \(entryCount) entries")
 
         let extremeDataset = generateExtremeDataset(count: entryCount)
 
@@ -65,7 +67,7 @@ final class ExtremeLoadStressTests: StressTestCase {
         XCTAssertEqual(viewModel.entries.count, entryCount, "Should handle \(entryCount) entries")
         XCTAssertLessThan(additionTime, 10.0, "Adding \(entryCount) entries should complete within 10 seconds")
 
-        reportProgress("Addition phase completed in \(String(format: "%.2f", additionTime))s")
+        NSLog("📊 Addition phase completed in \(String(format: "%.2f", additionTime))s")
 
         // Test save performance
         let saveStartTime = Date()
@@ -74,7 +76,7 @@ final class ExtremeLoadStressTests: StressTestCase {
 
         XCTAssertLessThan(saveTime, 120.0, "Saving \(entryCount) entries should complete within 2 minutes")
 
-        reportProgress("Save phase completed in \(String(format: "%.2f", saveTime))s")
+        NSLog("📊 Save phase completed in \(String(format: "%.2f", saveTime))s")
 
         // Test load performance
         let loadStartTime = Date()
@@ -84,7 +86,7 @@ final class ExtremeLoadStressTests: StressTestCase {
         XCTAssertEqual(stressTestViewModel.entries.count, entryCount, "Should load all \(entryCount) entries")
         XCTAssertLessThan(loadTime, 60.0, "Loading \(entryCount) entries should complete within 1 minute")
 
-        reportProgress("Load phase completed in \(String(format: "%.2f", loadTime))s")
+        NSLog("📊 Load phase completed in \(String(format: "%.2f", loadTime))s")
 
         // Test export performance
         let exportStartTime = Date()
@@ -94,7 +96,7 @@ final class ExtremeLoadStressTests: StressTestCase {
         XCTAssertNotNil(exportURL, "Should be able to export \(entryCount) entries")
         XCTAssertLessThan(exportTime, 80.0, "Exporting \(entryCount) entries should complete within 80 seconds")
 
-        reportProgress("Export phase completed in \(String(format: "%.2f", exportTime))s")
+        NSLog("📊 Export phase completed in \(String(format: "%.2f", exportTime))s")
 
         // Verify export file size
         verifyExportFileSize(exportURL, entryCount: entryCount)
@@ -106,7 +108,7 @@ final class ExtremeLoadStressTests: StressTestCase {
         let entryCount = config.stressDatasetSize / 2 // 5,000 entries
         let dataset = generateExtremeDataset(count: entryCount)
 
-        reportProgress("Testing massive bulk operations with \(entryCount) entries")
+        NSLog("📊 Testing massive bulk operations with \(entryCount) entries")
 
         // Setup large dataset
         for entry in dataset {
@@ -122,7 +124,7 @@ final class ExtremeLoadStressTests: StressTestCase {
 
         // Report performance
         for (operation, time) in operationTimes {
-            reportProgress("\(operation.capitalized) completed in \(String(format: "%.2f", time))s")
+            NSLog("📊 \(operation.capitalized) completed in \(String(format: "%.2f", time))s")
             XCTAssertLessThan(time, 30.0, "\(operation.capitalized) should complete within 30 seconds")
         }
 
@@ -139,7 +141,7 @@ final class ExtremeLoadStressTests: StressTestCase {
         let entryCount = config.stressDatasetSize / 4 // 2,500 entries
         let dataset = generateExtremeDataset(count: entryCount)
 
-        reportProgress("Testing concurrent operations stress with \(entryCount) entries")
+        NSLog("📊 Testing concurrent operations stress with \(entryCount) entries")
 
         // Setup dataset
         for entry in dataset {
@@ -147,7 +149,7 @@ final class ExtremeLoadStressTests: StressTestCase {
         }
         viewModel.save()
 
-        measureWithConfig {
+        measure {
             // Simulate multiple heavy operations in sequence
             // (Note: True concurrency would require more complex setup with thread safety)
 
@@ -196,13 +198,13 @@ final class ExtremeLoadStressTests: StressTestCase {
     func testMemoryExtremeStress() throws {
         try skipIfCI(reason: "Memory extreme stress test excluded from CI")
 
-        reportProgress("Testing extreme memory stress conditions")
+        NSLog("📊 Testing extreme memory stress conditions")
 
         let phases = [1000, 2500, 5000, 7500, 10000]
 
         for phase in phases {
             autoreleasepool {
-                reportProgress("Memory stress phase: \(phase) entries")
+                NSLog("📊 Memory stress phase: \(phase) entries")
 
                 let dataset = generateExtremeDataset(count: phase)
 
@@ -278,7 +280,7 @@ final class ExtremeLoadStressTests: StressTestCase {
             let fileSize = fileAttributes[.size] as? Int64 ?? 0
             let fileSizeMB = Double(fileSize) / 1024.0 / 1024.0
 
-            reportProgress("Export file size: \(String(format: "%.2f", fileSizeMB))MB")
+            NSLog("📊 Export file size: \(String(format: "%.2f", fileSizeMB))MB")
             XCTAssertGreaterThan(fileSize, 1_000_000, "Export file should be substantial for \(entryCount) entries")
             XCTAssertLessThan(fileSize, 100_000_000, "Export file should not exceed 100MB")
         } catch {

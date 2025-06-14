@@ -5,7 +5,9 @@ import TestConfiguration
 
 /// Comprehensive memory efficiency tests for local development environments
 /// Tests memory usage patterns and efficiency during various operations
-final class MemoryEfficiencyTests: PerformanceTestCase {
+final class MemoryEfficiencyTests: XCTestCase {
+
+    let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
@@ -47,9 +49,9 @@ final class MemoryEfficiencyTests: PerformanceTestCase {
         let entryCount = config.mediumDatasetSize // 500 locally
         let dataset = generateOptimizedDataset(count: entryCount)
 
-        reportProgress("Testing memory usage with \(entryCount) entries")
+        NSLog("📊 Testing memory usage with \(entryCount) entries")
 
-        measureWithConfig {
+        measure {
             viewModel.entries.removeAll()
 
             for entry in dataset {
@@ -82,9 +84,9 @@ final class MemoryEfficiencyTests: PerformanceTestCase {
         }
         viewModel.save()
 
-        reportProgress("Testing memory efficiency after bulk operations with \(entryCount) entries")
+        NSLog("📊 Testing memory efficiency after bulk operations with \(entryCount) entries")
 
-        measureWithConfig {
+        measure {
             // Bulk deletion
             let deleteCount = entryCount / 2
             let indicesToDelete = Array(deleteCount..<entryCount)
@@ -113,9 +115,9 @@ final class MemoryEfficiencyTests: PerformanceTestCase {
 
         let entryCount = config.smallDatasetSize * 2
 
-        reportProgress("Testing memory leak prevention with repeated operations")
+        NSLog("📊 Testing memory leak prevention with repeated operations")
 
-        measureWithConfig {
+        measure {
             // Perform repeated add/remove cycles to check for leaks
             for cycle in 0..<5 {
                 let dataset = generateOptimizedDataset(count: entryCount)
@@ -139,7 +141,7 @@ final class MemoryEfficiencyTests: PerformanceTestCase {
                 // Clear for next cycle
                 viewModel.entries.removeAll()
 
-                reportProgress("Completed memory leak test cycle \(cycle + 1)/5")
+                NSLog("📊 Completed memory leak test cycle \(cycle + 1)/5")
             }
         }
 
@@ -152,9 +154,9 @@ final class MemoryEfficiencyTests: PerformanceTestCase {
         let entryCount = config.largeDatasetSize // 1000 locally
         let dataset = generateRealisticDataset(count: entryCount)
 
-        reportProgress("Testing memory footprint with large dataset (\(entryCount) entries)")
+        NSLog("📊 Testing memory footprint with large dataset (\(entryCount) entries)")
 
-        measureWithConfig {
+        measure {
             autoreleasepool {
                 viewModel.entries.removeAll()
 
@@ -193,9 +195,9 @@ final class MemoryEfficiencyTests: PerformanceTestCase {
 
         let entryCount = config.largeDatasetSize
 
-        reportProgress("Testing memory recovery after large operations")
+        NSLog("📊 Testing memory recovery after large operations")
 
-        measureWithConfig {
+        measure {
             autoreleasepool {
                 // Create and process large dataset
                 let dataset = generateRealisticDataset(count: entryCount)

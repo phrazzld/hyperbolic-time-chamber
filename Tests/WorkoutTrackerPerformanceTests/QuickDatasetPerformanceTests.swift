@@ -5,7 +5,9 @@ import TestConfiguration
 
 /// Quick dataset performance tests optimized for CI environments (< 5s execution time)
 /// Tests essential dataset operations with small, CI-appropriate dataset sizes
-final class QuickDatasetPerformanceTests: PerformanceTestCase {
+final class QuickDatasetPerformanceTests: XCTestCase {
+
+    let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
@@ -52,9 +54,9 @@ final class QuickDatasetPerformanceTests: PerformanceTestCase {
 
     func testQuickDatasetCreation() {
         let entryCount = config.smallDatasetSize // 20 in CI, 100 locally
-        reportProgress("Starting quick dataset creation test with \(entryCount) entries")
+        NSLog("📊 Starting quick dataset creation test with \(entryCount) entries")
 
-        measureWithConfig {
+        measure {
             let dataset = generateOptimizedDataset(count: entryCount)
             XCTAssertEqual(dataset.count, entryCount, "Should generate exactly \(entryCount) entries")
         }
@@ -64,7 +66,7 @@ final class QuickDatasetPerformanceTests: PerformanceTestCase {
         let entryCount = config.smallDatasetSize
         let dataset = generateOptimizedDataset(count: entryCount)
 
-        measureWithConfig {
+        measure {
             // Test basic operations on small dataset
             viewModel.entries.removeAll()
 

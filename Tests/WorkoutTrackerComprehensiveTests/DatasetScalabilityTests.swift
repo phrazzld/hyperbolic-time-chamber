@@ -5,7 +5,9 @@ import TestConfiguration
 
 /// Comprehensive dataset scalability tests for local development environments
 /// Tests performance across different dataset sizes to verify scalability characteristics
-final class DatasetScalabilityTests: PerformanceTestCase {
+final class DatasetScalabilityTests: XCTestCase {
+
+    let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
@@ -50,11 +52,11 @@ final class DatasetScalabilityTests: PerformanceTestCase {
         var saveTimes: [Double] = []
         var loadTimes: [Double] = []
 
-        reportProgress("Testing scalability across dataset sizes: \(sizes)")
+        NSLog("📊 Testing scalability across dataset sizes: \(sizes)")
 
         for size in sizes {
             let dataset = generateRealisticDataset(count: size)
-            reportProgress("Testing with dataset size: \(size)")
+            NSLog("📊 Testing with dataset size: \(size)")
 
             // Clear previous data
             viewModel.entries.removeAll()
@@ -83,9 +85,9 @@ final class DatasetScalabilityTests: PerformanceTestCase {
         }
 
         // Verify scalability - performance should scale reasonably
-        reportProgress("Add times: \(addTimes.map { String(format: "%.3f", $0) })")
-        reportProgress("Save times: \(saveTimes.map { String(format: "%.3f", $0) })")
-        reportProgress("Load times: \(loadTimes.map { String(format: "%.3f", $0) })")
+        NSLog("📊 Add times: \(addTimes)")
+        NSLog("📊 Save times: \(saveTimes)")
+        NSLog("📊 Load times: \(loadTimes)")
 
         // Performance should not degrade exponentially
         XCTAssertLessThan(addTimes[1] / addTimes[0], 10.0, "5x data should not take >10x time to add")
@@ -103,9 +105,9 @@ final class DatasetScalabilityTests: PerformanceTestCase {
         for size in sizes {
             autoreleasepool {
                 let dataset = generateRealisticDataset(count: size)
-                reportProgress("Testing memory usage with \(size) entries")
+                NSLog("📊 Testing memory usage with \(size) entries")
 
-                measureWithConfig {
+                measure {
                     viewModel.entries.removeAll()
 
                     for entry in dataset {
@@ -141,9 +143,9 @@ final class DatasetScalabilityTests: PerformanceTestCase {
                 viewModel.entries.append(entry)
             }
 
-            reportProgress("Testing search performance with \(size) entries")
+            NSLog("📊 Testing search performance with \(size) entries")
 
-            measureWithConfig {
+            measure {
                 // Test various search patterns
                 let nameSearch = viewModel.entries.filter { $0.exerciseName.contains("Push-ups") }
                 let dateSearch = viewModel.entries.filter { $0.date.timeIntervalSinceNow > -86400 * 30 }
@@ -179,10 +181,10 @@ final class DatasetScalabilityTests: PerformanceTestCase {
             }
             viewModel.save()
 
-            reportProgress("Testing export performance with \(size) entries")
+            NSLog("📊 Testing export performance with \(size) entries")
 
             var exportURL: URL?
-            measureWithConfig {
+            measure {
                 exportURL = viewModel.exportJSON()
             }
 
@@ -195,7 +197,7 @@ final class DatasetScalabilityTests: PerformanceTestCase {
                     let fileAttributes = try FileManager.default.attributesOfItem(atPath: url.path)
                     let fileSize = fileAttributes[.size] as? Int64 ?? 0
                     XCTAssertGreaterThan(fileSize, Int64(size * 100), "Export file should be reasonable size")
-                    reportProgress("Export file size for \(size) entries: \(fileSize) bytes")
+                    NSLog("📊 Export file size for \(size) entries: \(fileSize) bytes")
                 } catch {
                     XCTFail("Failed to check export file attributes: \(error)")
                 }

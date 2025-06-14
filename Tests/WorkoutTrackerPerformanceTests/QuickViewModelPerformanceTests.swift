@@ -5,7 +5,9 @@ import TestConfiguration
 
 /// Quick ViewModel performance tests optimized for CI environments (< 5s execution time)
 /// Tests essential ViewModel operations with small, CI-appropriate dataset sizes
-final class QuickViewModelPerformanceTests: PerformanceTestCase {
+final class QuickViewModelPerformanceTests: XCTestCase {
+
+    let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
@@ -54,9 +56,9 @@ final class QuickViewModelPerformanceTests: PerformanceTestCase {
         let entryCount = config.smallDatasetSize // 20 in CI, 100 locally
         let dataset = generateOptimizedDataset(count: entryCount)
 
-        reportProgress("Testing quick add entry performance with \(entryCount) entries")
+        NSLog("📊 Testing quick add entry performance with \(entryCount) entries")
 
-        measureWithConfig {
+        measure {
             viewModel.entries.removeAll()
 
             // Test adding entries one by one (as user would)
@@ -73,7 +75,7 @@ final class QuickViewModelPerformanceTests: PerformanceTestCase {
         let dataset = generateOptimizedDataset(count: entryCount)
         let deleteCount = entryCount / 2
 
-        measureWithConfig {
+        measure {
             // Setup fresh data for each iteration
             viewModel.entries.removeAll()
             for entry in dataset {
@@ -99,7 +101,7 @@ final class QuickViewModelPerformanceTests: PerformanceTestCase {
             viewModel.entries.append(entry)
         }
 
-        measureWithConfig {
+        measure {
             // Test common search operations
             let pushUpEntries = viewModel.entries.filter { $0.exerciseName.contains("Push") }
             let weightedEntries = viewModel.entries.filter { entry in
@@ -120,7 +122,7 @@ final class QuickViewModelPerformanceTests: PerformanceTestCase {
         let entryCount = config.smallDatasetSize / 2 // Even smaller for manipulation test
         let dataset = generateOptimizedDataset(count: entryCount)
 
-        measureWithConfig {
+        measure {
             // Test a complete workflow: add, sort, filter, delete
             viewModel.entries.removeAll()
 

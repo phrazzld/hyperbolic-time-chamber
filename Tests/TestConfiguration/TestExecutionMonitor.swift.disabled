@@ -29,6 +29,39 @@ public class TestExecutionMonitor {
         public var isVerySlowTest: Bool {
             duration >= TestConfiguration.shared.verySlowTestThreshold
         }
+
+        /// Categorize test by actual execution time
+        public var executionTimeCategory: ExecutionTimeCategory {
+            TestConfiguration.shared.categorizeByExecutionTime(duration)
+        }
+
+        /// Check if test execution time is appropriate for its category
+        public var isAppropriateForCategory: Bool {
+            let actualCategory = executionTimeCategory
+
+            // Allow some flexibility in categorization
+            switch (category, actualCategory) {
+            case (.unit, .fast): return true
+            case (.integration, .fast), (.integration, .medium): return true
+            case (.performance, .medium), (.performance, .slow): return true
+            case (.stress, .slow), (.stress, .verySlow): return true
+            default: return false
+            }
+        }
+
+        /// Performance classification for reporting
+        public var performanceClassification: String {
+            if !isAppropriateForCategory {
+                return "⚠️ Mismatched"
+            }
+
+            switch executionTimeCategory {
+            case .fast: return "🚀 Fast"
+            case .medium: return "⚡ Medium"
+            case .slow: return "🐌 Slow"
+            case .verySlow: return "🐢 Very Slow"
+            }
+        }
     }
 
     /// Test suite execution record
@@ -47,6 +80,25 @@ public class TestExecutionMonitor {
         public var passedCount: Int { tests.filter { $0.passed && !$0.skipped }.count }
         public var failedCount: Int { tests.filter { !$0.passed && !$0.skipped }.count }
         public var skippedCount: Int { tests.filter { $0.skipped }.count }
+
+        /// Count tests by execution time category
+        public var executionTimeCounts: [ExecutionTimeCategory: Int] {
+            let allCategories: [ExecutionTimeCategory] = [.fast, .medium, .slow, .verySlow]
+            return Dictionary(uniqueKeysWithValues: allCategories.map { category in
+                (category, tests.filter { $0.executionTimeCategory == category }.count)
+            })
+        }
+
+        /// Tests that don't match their expected performance category
+        public var mismatchedTests: [TestExecution] {
+            tests.filter { !$0.isAppropriateForCategory }
+        }
+
+        /// Average execution time
+        public var averageExecutionTime: TimeInterval {
+            guard !tests.isEmpty else { return 0 }
+            return tests.reduce(0) { $0 + $1.duration } / Double(tests.count)
+        }
     }
 
     // MARK: - State Management
@@ -275,8 +327,14 @@ public class TestExecutionMonitor {
         // Overall statistics
         report += generateOverallStatistics(suites: allSuites, tests: allTests)
 
+        // Execution time categorization
+        report += generateExecutionTimeCategorization(allTests)
+
         // Slowest tests
         report += generateSlowestTestsReport(tests: allTests)
+
+        // Performance mismatches
+        report += generatePerformanceMismatchReport(allTests)
 
         // Suite breakdown
         report += generateSuiteBreakdown(suites: allSuites)
@@ -340,8 +398,7 @@ public class TestExecutionMonitor {
     }
 
     private func generateSuiteSummary(_ suite: TestSuiteExecution) -> String {
-        let duration = String(format: "%.2f", suite.duration)
-        return "\(suite.testCount) tests in \(duration)s (\(suite.passedCount) passed, " +
+        "\(suite.testCount) tests (\(suite.passedCount) passed, " +
                "\(suite.failedCount) failed, \(suite.skippedCount) skipped)"
     }
 
@@ -355,6 +412,7 @@ public class TestExecutionMonitor {
         let slowTests = tests.filter { $0.isSlowTest }.count
         let verySlowTests = tests.filter { $0.isVerySlowTest }.count
         let timeoutThresholdTests = tests.filter { $0.duration >= config.testWarningThreshold }.count
+        let mismatchedTests = tests.filter { !$0.isAppropriateForCategory }.count
 
         var stats = "\n📈 OVERALL STATISTICS\n"
         stats += "• Total Execution Time: \(String(format: "%.2f", totalDuration))s\n"
@@ -365,6 +423,7 @@ public class TestExecutionMonitor {
         stats += "• Very Slow Tests (≥\(config.verySlowTestThreshold)s): \(verySlowTests)\n"
         let timeoutThreshold = String(format: "%.0f", config.testWarningThreshold)
         stats += "• Tests Exceeding Timeout Threshold (≥\(timeoutThreshold)s): \(timeoutThresholdTests)\n"
+        stats += "• Performance Category Mismatches: \(mismatchedTests)\n"
 
         if totalTests > 0 {
             let avgDuration = tests.reduce(0) { $0 + $1.duration } / Double(totalTests)
@@ -396,7 +455,9 @@ public class TestExecutionMonitor {
             let duration = String(format: "%.3f", test.duration)
             let status = test.passed ? "✅" : "❌"
             let category = test.category.description
-            report += "\(index + 1). \(status) \(test.testName) (\(category)) - \(duration)s\n"
+            let timeCategory = test.executionTimeCategory.description
+            let classification = test.performanceClassification
+            report += "\(index + 1). \(status) \(test.testName) (\(category)/\(timeCategory)) - \(duration)s \(classification)\n"
         }
 
         return report + "\n"
@@ -410,14 +471,99 @@ public class TestExecutionMonitor {
             let duration = String(format: "%.2f", suite.duration)
             let summary = generateSuiteSummary(suite)
             breakdown += "• \(suite.suiteName): \(duration)s - \(summary)\n"
+
+            // Add execution time distribution for each suite
+            let timeCounts = suite.executionTimeCounts
+            if suite.testCount > 0 {
+                let timeDistribution = [ExecutionTimeCategory.fast, .medium, .slow, .verySlow]
+                    .filter { category in timeCounts[category] ?? 0 != 0 }
+                    .map { category in
+                        let count = timeCounts[category] ?? 0
+                        return "\(category.description): \(count)"
+                    }
+                    .joined(separator: ", ")
+                if !timeDistribution.isEmpty {
+                    breakdown += "  Time Distribution: \(timeDistribution)\n"
+                }
+
+                if !suite.mismatchedTests.isEmpty {
+                    breakdown += "  ⚠️ \(suite.mismatchedTests.count) mismatched tests\n"
+                }
+            }
         }
 
         return breakdown + "\n"
     }
 
+    private func generateExecutionTimeCategorization(_ tests: [TestExecution]) -> String {
+        guard !tests.isEmpty else { return "" }
+
+        let categories: [ExecutionTimeCategory] = [.fast, .medium, .slow, .verySlow]
+        let categoryCounts = Dictionary(uniqueKeysWithValues: categories.map { category in
+            (category, tests.filter { $0.executionTimeCategory == category }.count)
+        })
+
+        var report = "⏱️ EXECUTION TIME CATEGORIZATION\n"
+
+        for category in categories {
+            let count = categoryCounts[category] ?? 0
+            let percentage = !tests.isEmpty ? Double(count) / Double(tests.count) * 100 : 0
+            let suitability = category.ciSuitability
+
+            report += "• \(category.description) (\(category.timeRange)): \(count) tests (\(String(format: "%.1f", percentage))%)\n"
+            report += "  CI Suitability: \(suitability)\n"
+        }
+
+        // Add recommendations
+        let fastTests = categoryCounts[.fast] ?? 0
+        let totalTests = tests.count
+        let fastPercentage = totalTests > 0 ? Double(fastTests) / Double(totalTests) * 100 : 0
+
+        report += "\n💡 RECOMMENDATIONS\n"
+        if fastPercentage < 70 {
+            report += "• Consider optimizing tests to increase fast test percentage (currently \(String(format: "%.1f", fastPercentage))%)\n"
+        }
+
+        let verySlowTests = categoryCounts[.verySlow] ?? 0
+        if verySlowTests > 0 && config.isCI {
+            report += "• \(verySlowTests) very slow tests detected - consider moving to nightly CI or local-only execution\n"
+        }
+
+        return report + "\n"
+    }
+
+    private func generatePerformanceMismatchReport(_ tests: [TestExecution]) -> String {
+        let mismatchedTests = tests.filter { !$0.isAppropriateForCategory }
+        guard !mismatchedTests.isEmpty else { return "" }
+
+        var report = "⚠️ PERFORMANCE CATEGORY MISMATCHES\n"
+        report += "Tests that don't match their expected performance category:\n\n"
+
+        for test in mismatchedTests {
+            let expected = test.category.expectedTimeRange
+            let actual = test.executionTimeCategory.timeRange
+            report += "• \(test.testName)\n"
+            report += "  Expected: \(test.category.description) (\(expected))\n"
+            report += "  Actual: \(test.executionTimeCategory.description) (\(actual))\n"
+            report += "  Duration: \(String(format: "%.3f", test.duration))s\n\n"
+        }
+
+        report += "💡 Consider:\n"
+        report += "• Updating test categories to match actual performance\n"
+        report += "• Optimizing slow tests in fast categories\n"
+        report += "• Moving mismatched tests to appropriate test suites\n"
+
+        return report + "\n"
+    }
+
     private func generateStructuredOutput(suites: [TestSuiteExecution], tests: [TestExecution]) -> String {
         let totalDuration = suites.reduce(0) { $0 + $1.duration }
         let slowTests = tests.filter { $0.isSlowTest }
+
+        let categories: [ExecutionTimeCategory] = [.fast, .medium, .slow, .verySlow]
+        let categoryCounts = Dictionary(uniqueKeysWithValues: categories.map { category in
+            (category.description.lowercased(), tests.filter { $0.executionTimeCategory == category }.count)
+        })
 
         let output: [String: Any] = [
             "test_execution_summary": [
@@ -425,11 +571,14 @@ public class TestExecutionMonitor {
                 "total_suites": suites.count,
                 "total_tests": tests.count,
                 "slow_tests_count": slowTests.count,
+                "execution_time_categories": categoryCounts,
+                "mismatched_tests_count": tests.filter { !$0.isAppropriateForCategory }.count,
                 "slowest_tests": slowTests.prefix(5).map { test in
                     [
                         "name": test.testName,
                         "duration_seconds": test.duration,
-                        "category": test.category.description
+                        "category": test.category.description,
+                        "execution_time_category": test.executionTimeCategory.description
                     ]
                 }
             ]

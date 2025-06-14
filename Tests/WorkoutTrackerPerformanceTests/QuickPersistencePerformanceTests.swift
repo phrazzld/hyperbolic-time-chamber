@@ -5,7 +5,9 @@ import TestConfiguration
 
 /// Quick persistence performance tests optimized for CI environments (< 5s execution time)
 /// Tests essential save/load operations with small, CI-appropriate dataset sizes
-final class QuickPersistencePerformanceTests: PerformanceTestCase {
+final class QuickPersistencePerformanceTests: XCTestCase {
+
+    let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
     private var dataStore: DataStore!
@@ -59,9 +61,9 @@ final class QuickPersistencePerformanceTests: PerformanceTestCase {
             viewModel.entries.append(entry)
         }
 
-        reportProgress("Testing quick save performance with \(entryCount) entries")
+        NSLog("📊 Testing quick save performance with \(entryCount) entries")
 
-        measureWithConfig {
+        measure {
             viewModel.save()
         }
 
@@ -82,9 +84,9 @@ final class QuickPersistencePerformanceTests: PerformanceTestCase {
         }
         XCTAssertEqual(viewModel.entries.count, entryCount, "Should have initial entries")
 
-        reportProgress("Testing quick load performance with \(entryCount) entries")
+        NSLog("📊 Testing quick load performance with \(entryCount) entries")
 
-        measureWithConfig {
+        measure {
             // Create fresh ViewModel to test loading
             let freshViewModel = WorkoutViewModel(dataStore: dataStore)
             XCTAssertEqual(freshViewModel.entries.count, entryCount, "Should load all entries")
@@ -95,7 +97,7 @@ final class QuickPersistencePerformanceTests: PerformanceTestCase {
         let entryCount = config.smallDatasetSize / 2 // Smaller for round-trip test
         let dataset = generateOptimizedDataset(count: entryCount)
 
-        measureWithConfig {
+        measure {
             // Clear and add entries
             viewModel.entries.removeAll()
             for entry in dataset {
@@ -122,7 +124,7 @@ final class QuickPersistencePerformanceTests: PerformanceTestCase {
         viewModel.save()
 
         var exportURL: URL?
-        measureWithConfig {
+        measure {
             exportURL = viewModel.exportJSON()
         }
 
@@ -141,7 +143,7 @@ final class QuickPersistencePerformanceTests: PerformanceTestCase {
         // Store original IDs for verification
         let originalIds = Set(dataset.map { $0.id })
 
-        measureWithConfig {
+        measure {
             // Clear any existing data before each iteration
             viewModel.entries.removeAll()
 
