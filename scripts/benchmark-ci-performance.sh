@@ -506,11 +506,29 @@ collect_metrics() {
         if [ -f "$latest_cache" ]; then
             test_execution_time=$(jq -r '.results.execution_time // 0' "$latest_cache" 2>/dev/null || echo "0")
             total_tests=$(jq -r '.results.total_tests // 0' "$latest_cache" 2>/dev/null || echo "0")
-            cache_hit=true
-            cache_hit_rate=100
             
-            if [ "$VERBOSE" = true ]; then
-                echo "📦 Found cached test results: ${test_execution_time}s execution, $total_tests tests"
+            # Determine if cache was actually used based on file age
+            # If cache file is very recent (< 5 minutes), it was just created by fresh test run
+            # If cache file is older, it means cached results were used
+            local current_time=$(date +%s)
+            local file_time=$(stat -f %m "$latest_cache" 2>/dev/null || stat -c %Y "$latest_cache" 2>/dev/null || echo "$current_time")
+            local file_age_seconds=$((current_time - file_time))
+            local cache_age_threshold=300  # 5 minutes in seconds
+            
+            if [ "$file_age_seconds" -lt "$cache_age_threshold" ]; then
+                # Cache file is recent - fresh tests were just run
+                cache_hit=false
+                cache_hit_rate=0
+                if [ "$VERBOSE" = true ]; then
+                    echo "🔄 Fresh test results: ${test_execution_time}s execution, $total_tests tests (cache file age: ${file_age_seconds}s)"
+                fi
+            else
+                # Cache file is older - cached results were used
+                cache_hit=true
+                cache_hit_rate=100
+                if [ "$VERBOSE" = true ]; then
+                    echo "📦 Used cached test results: ${test_execution_time}s execution, $total_tests tests (cache file age: ${file_age_seconds}s)"
+                fi
             fi
         fi
     fi
