@@ -3,7 +3,7 @@
 ## 🚨 CRITICAL: CI Release Build Failures (ALL PR VALIDATION BLOCKED)
 
 ### Immediate CI Restoration (Emergency Priority)
-- [ ] **Fix @testable import in TestConfiguration module** - Remove @testable import WorkoutTracker from WorkoutTestDataFactory.swift that causes release build failures
+- [x] **Fix @testable import in TestConfiguration module** - Remove @testable import WorkoutTracker from WorkoutTestDataFactory.swift that causes release build failures
   - dependencies: none
   - estimated: 15 minutes
   - location: Tests/TestConfiguration/WorkoutTestDataFactory.swift:2
