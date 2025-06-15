@@ -356,7 +356,222 @@ validate_platform_utils() {
     echo -e "${BLUE}Platform utilities validation complete${NC}"
 }
 
-# Export functions for use in other scripts
+# Enhanced Error Handling Functions
+
+# Check if a command exists and provide helpful error messages
+require_command() {
+    local cmd="$1"
+    local description="${2:-$cmd}"
+    local install_hint="${3:-}"
+    
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo -e "${RED}❌ Error: '$cmd' command not found${NC}" >&2
+        echo -e "${YELLOW}💡 '$description' is required but not available on this system${NC}" >&2
+        
+        if [[ -n "$install_hint" ]]; then
+            echo -e "${BLUE}🔧 Installation suggestion: $install_hint${NC}" >&2
+        else
+            suggest_installation "$cmd"
+        fi
+        
+        return 1
+    fi
+    return 0
+}
+
+# Suggest installation commands for common tools
+suggest_installation() {
+    local cmd="$1"
+    local platform=$(detect_platform)
+    
+    case "$cmd" in
+        jq)
+            case "$platform" in
+                macos) echo -e "${BLUE}🔧 Install with: brew install jq${NC}" >&2 ;;
+                linux) echo -e "${BLUE}🔧 Install with: sudo apt-get install jq (Ubuntu/Debian) or sudo yum install jq (RHEL/CentOS)${NC}" >&2 ;;
+            esac
+            ;;
+        python3)
+            case "$platform" in
+                macos) echo -e "${BLUE}🔧 Install with: brew install python3 or download from python.org${NC}" >&2 ;;
+                linux) echo -e "${BLUE}🔧 Install with: sudo apt-get install python3 (Ubuntu/Debian) or sudo yum install python3 (RHEL/CentOS)${NC}" >&2 ;;
+            esac
+            ;;
+        swift)
+            echo -e "${BLUE}🔧 Install Swift from: https://swift.org/download/${NC}" >&2
+            ;;
+        git)
+            case "$platform" in
+                macos) echo -e "${BLUE}🔧 Install with: brew install git or install Xcode Command Line Tools${NC}" >&2 ;;
+                linux) echo -e "${BLUE}🔧 Install with: sudo apt-get install git (Ubuntu/Debian) or sudo yum install git (RHEL/CentOS)${NC}" >&2 ;;
+            esac
+            ;;
+        timeout|gtimeout)
+            case "$platform" in
+                macos) echo -e "${BLUE}🔧 Install with: brew install coreutils (provides gtimeout)${NC}" >&2 ;;
+                linux) echo -e "${BLUE}🔧 Usually available by default. Try: sudo apt-get install coreutils${NC}" >&2 ;;
+            esac
+            ;;
+        *)
+            echo -e "${BLUE}🔧 Please install '$cmd' using your system's package manager${NC}" >&2
+            ;;
+    esac
+}
+
+# Run a command with enhanced error handling and fallbacks
+safe_run() {
+    local cmd="$1"
+    local description="${2:-command}"
+    local fallback_cmd="${3:-}"
+    
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}🔧 Running: $cmd${NC}" >&2
+    fi
+    
+    local exit_code
+    eval "$cmd"
+    exit_code=$?
+    
+    if [[ $exit_code -ne 0 ]]; then
+        echo -e "${RED}❌ Error: $description failed with exit code $exit_code${NC}" >&2
+        
+        if [[ -n "$fallback_cmd" ]]; then
+            echo -e "${YELLOW}🔄 Trying fallback: $fallback_cmd${NC}" >&2
+            eval "$fallback_cmd"
+            exit_code=$?
+            
+            if [[ $exit_code -eq 0 ]]; then
+                echo -e "${GREEN}✅ Fallback succeeded${NC}" >&2
+            else
+                echo -e "${RED}❌ Fallback also failed with exit code $exit_code${NC}" >&2
+            fi
+        fi
+    fi
+    
+    return $exit_code
+}
+
+# Enhanced error reporting with context
+error_with_context() {
+    local error_msg="$1"
+    local context="${2:-}"
+    local suggestions="${3:-}"
+    
+    echo -e "${RED}❌ Error: $error_msg${NC}" >&2
+    
+    if [[ -n "$context" ]]; then
+        echo -e "${YELLOW}📍 Context: $context${NC}" >&2
+    fi
+    
+    if [[ -n "$suggestions" ]]; then
+        echo -e "${BLUE}💡 Suggestions:${NC}" >&2
+        echo "$suggestions" | while IFS= read -r suggestion; do
+            if [[ -n "$suggestion" ]]; then
+                echo -e "${BLUE}   - $suggestion${NC}" >&2
+            fi
+        done
+    fi
+}
+
+# Check system requirements for CI operations
+check_ci_requirements() {
+    local missing_tools=()
+    local warnings=()
+    
+    echo -e "${BLUE}🔍 Checking CI system requirements...${NC}"
+    
+    # Essential tools
+    local essential_tools=("swift" "git" "jq")
+    for tool in "${essential_tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing_tools+=("$tool")
+        fi
+    done
+    
+    # Recommended tools (warnings only)
+    local recommended_tools=("python3" "bc")
+    for tool in "${recommended_tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            warnings+=("$tool")
+        fi
+    done
+    
+    # Report results
+    if [[ ${#missing_tools[@]} -gt 0 ]]; then
+        echo -e "${RED}❌ Missing essential tools: ${missing_tools[*]}${NC}" >&2
+        echo -e "${YELLOW}💡 CI operations may fail without these tools${NC}" >&2
+        
+        for tool in "${missing_tools[@]}"; do
+            suggest_installation "$tool"
+        done
+        
+        return 1
+    fi
+    
+    if [[ ${#warnings[@]} -gt 0 ]]; then
+        echo -e "${YELLOW}⚠️  Missing recommended tools: ${warnings[*]}${NC}" >&2
+        echo -e "${BLUE}💡 Some features may have limited functionality${NC}" >&2
+    fi
+    
+    echo -e "${GREEN}✅ Essential CI requirements satisfied${NC}"
+    return 0
+}
+
+# Validate file operations with helpful errors
+validate_file_operation() {
+    local operation="$1"
+    local file_path="$2"
+    local context="${3:-file operation}"
+    
+    case "$operation" in
+        read)
+            if [[ ! -f "$file_path" ]]; then
+                error_with_context "File not found: $file_path" "$context" \
+                    "Check if the file path is correct
+Ensure the file was created by a previous step
+Verify file permissions allow reading"
+                return 1
+            elif [[ ! -r "$file_path" ]]; then
+                error_with_context "File not readable: $file_path" "$context" \
+                    "Check file permissions: ls -la $file_path
+Fix permissions: chmod +r $file_path"
+                return 1
+            fi
+            ;;
+        write)
+            local dir_path=$(dirname "$file_path")
+            if [[ ! -d "$dir_path" ]]; then
+                error_with_context "Directory not found: $dir_path" "$context" \
+                    "Create directory: mkdir -p $dir_path
+Check if the path is correct"
+                return 1
+            elif [[ ! -w "$dir_path" ]]; then
+                error_with_context "Directory not writable: $dir_path" "$context" \
+                    "Check directory permissions: ls -la $dir_path
+Fix permissions: chmod +w $dir_path"
+                return 1
+            fi
+            ;;
+        execute)
+            if [[ ! -f "$file_path" ]]; then
+                error_with_context "Executable not found: $file_path" "$context"
+                return 1
+            elif [[ ! -x "$file_path" ]]; then
+                error_with_context "File not executable: $file_path" "$context" \
+                    "Fix permissions: chmod +x $file_path"
+                return 1
+            fi
+            ;;
+    esac
+    
+    return 0
+}
+
+# Export new error handling functions
+export -f require_command suggest_installation safe_run error_with_context
+export -f check_ci_requirements validate_file_operation
+
+# Export all functions for use in other scripts
 export -f detect_platform install_package hash_file hash_files hash_directory
 export -f run_with_timeout parse_iso_date get_memory_usage_mb encode_base64 decode_base64
 export -f iso_timestamp create_temp_file create_temp_dir is_ci platform_info validate_platform_utils

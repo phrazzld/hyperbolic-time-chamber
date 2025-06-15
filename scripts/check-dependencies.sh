@@ -5,12 +5,9 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Import platform utilities and error handling
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/platform-utils.sh"
 
 # Configuration
 RESULTS_DIR="security"
@@ -18,6 +15,11 @@ ADVISORIES_URL="https://github.com/advisories"
 SPM_ADVISORY_DB="https://api.github.com/advisories"
 
 echo -e "${BLUE}🔒 Scanning dependencies for vulnerabilities...${NC}"
+
+# Check system requirements
+if ! require_command "python3" "Python 3"; then
+    exit 1
+fi
 
 # Create results directory
 mkdir -p $RESULTS_DIR
@@ -33,8 +35,11 @@ fi
 # Extract dependencies from Package.resolved
 echo "📦 Analyzing Package.resolved for dependencies..."
 
-if [ ! -f "Package.resolved" ]; then
-    echo -e "${RED}❌ Package.resolved not found. Run 'swift package resolve' first.${NC}"
+if ! validate_file_operation "read" "Package.resolved" "dependency analysis"; then
+    error_with_context "Package.resolved not found" "dependency vulnerability scanning" \
+        "Run 'swift package resolve' to generate Package.resolved
+Ensure you're in the Swift package root directory
+Check that Package.swift exists and is valid"
     exit 1
 fi
 

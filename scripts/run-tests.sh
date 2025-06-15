@@ -5,12 +5,9 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Import platform utilities and error handling
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/platform-utils.sh"
 
 # Default options
 COVERAGE_ENABLED=false
@@ -18,6 +15,15 @@ TIMEOUT_ENABLED=false
 TIMEOUT_SECONDS=180
 VERBOSE=false
 FILTER=""
+
+# Check system requirements
+if ! require_command "swift" "Swift compiler" "Install Swift from https://swift.org/download/"; then
+    error_with_context "Swift compiler is required to run tests" "test execution" \
+        "Install Swift development tools
+Ensure Swift is in your PATH
+On macOS, install Xcode or Command Line Tools"
+    exit 1
+fi
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -126,7 +132,9 @@ if [ "$TIMEOUT_ENABLED" = true ]; then
         # Use standard timeout (Linux)
         TIMEOUT_CMD="timeout ${TIMEOUT_SECONDS}s"
     else
-        echo -e "${YELLOW}⚠️  Timeout command not available, running without timeout${NC}"
+        echo -e "${YELLOW}⚠️  No timeout command available${NC}"
+        suggest_installation "timeout"
+        echo -e "${BLUE}💡 Continuing without timeout protection${NC}"
         TIMEOUT_CMD=""
     fi
     

@@ -5,12 +5,9 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Import platform utilities and error handling
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/platform-utils.sh"
 
 # Configuration - Set achievable baselines focused on business logic
 COVERAGE_DIR="coverage"
@@ -19,6 +16,15 @@ MIN_FUNCTION_COVERAGE=45  # Current baseline: 47%, maintain current level
 MIN_BUSINESS_LOGIC_COVERAGE=90  # High bar for Models/, Services/, ViewModels/
 
 echo -e "${BLUE}📊 Generating test coverage report...${NC}"
+
+# Check system requirements
+if ! require_command "swift" "Swift compiler"; then
+    exit 1
+fi
+
+if ! require_command "xcrun" "Xcode command line tools" "Install Xcode Command Line Tools: xcode-select --install"; then
+    exit 1
+fi
 
 # Clean previous coverage data
 rm -rf $COVERAGE_DIR
@@ -39,7 +45,11 @@ PROFDATA_FILE=$(find .build -name "*.profdata" | head -1)
 EXECUTABLE_FILE=$(find .build -path "*debug/WorkoutTracker" -type f | grep -v dSYM | head -1)
 
 if [ -z "$PROFDATA_FILE" ] || [ -z "$EXECUTABLE_FILE" ]; then
-    echo -e "${RED}❌ Coverage files not found. Make sure tests ran successfully.${NC}"
+    error_with_context "Coverage files not found" "code coverage generation" \
+        "Ensure tests ran successfully with --enable-code-coverage
+Check that Swift package builds correctly
+Verify .build directory exists and is accessible
+Try running: swift test --enable-code-coverage manually"
     exit 1
 fi
 
