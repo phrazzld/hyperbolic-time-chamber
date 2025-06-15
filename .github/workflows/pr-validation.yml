@@ -86,7 +86,7 @@ jobs:
           swiftlint_exit_code=$?
           
           # Capture JSON output for PR comment generation
-          swiftlint lint --reporter json > swiftlint_results.json 2>/dev/null || true
+          swiftlint lint --reporter json > swiftlint_results.json || true
           
           # Count violations for summary
           violation_count=$(cat swiftlint_results.json | jq '. | length' 2>/dev/null || echo "0")
