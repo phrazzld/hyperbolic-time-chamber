@@ -67,7 +67,7 @@ jobs:
         echo "- Should Release: $SHOULD_RELEASE"
     
     - name: Upload Version Analysis
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: version-analysis
         path: version-analysis.json
