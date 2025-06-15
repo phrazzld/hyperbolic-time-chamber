@@ -11,11 +11,11 @@
   - impact: Breaks conditional logic in performance metric collection
   - result: ✅ SUCCESS - Fixed bash glob pattern in conditional test using `ls` command with proper output redirection
 
-- [ ] **Investigate zero test execution detection** - Determine why benchmark script reports 0 tests executed when validation jobs run 120+ tests successfully
-  - depends-on: Fix bash syntax error in benchmark script
-  - estimated: 15 minutes
-  - validation: Compare main CI job test execution vs validation job test execution
-  - scope: Understand test execution context and timing in main CI workflow
+- [~] **Fix oppressive memory efficiency threshold logic** - Correct backwards logic that treats 100% efficiency as critical failure
+  - dependencies: none (discovered during execution)
+  - estimated: 10 minutes
+  - issue: Memory efficiency >95% flagged as critical when it should be excellent
+  - approach: Move memory_efficiency to "higher is better" metrics and flip thresholds
 
 - [ ] **Fix cache hit rate detection logic** - Resolve 0% cache hit rate when test result caching should be functional
   - depends-on: Investigate zero test execution detection

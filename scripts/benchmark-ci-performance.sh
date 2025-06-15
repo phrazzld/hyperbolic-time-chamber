@@ -88,10 +88,10 @@ get_environment_baselines() {
             },
             "memory_efficiency": {
               "target": 80,
-              "warning": 90,
-              "critical": 95,
+              "warning": 60,
+              "critical": 40,
               "unit": "percent",
-              "description": "Memory utilization efficiency of build processes (lower is better)"
+              "description": "Memory utilization efficiency of build processes (higher is better)"
             }
           }
         }'
@@ -160,10 +160,10 @@ get_environment_baselines() {
             },
             "memory_efficiency": {
               "target": 80,
-              "warning": 90,
-              "critical": 95,
+              "warning": 60,
+              "critical": 40,
               "unit": "percent",
-              "description": "Memory utilization efficiency (lower is better)"
+              "description": "Memory utilization efficiency (higher is better)"
             }
           }
         }'
@@ -682,7 +682,7 @@ analyze_performance() {
         local status="✅ EXCELLENT"
         local status_color="$GREEN"
         
-        if [ "$metric" = "cache_hit_rate" ] || [ "$metric" = "test_count" ]; then
+        if [ "$metric" = "cache_hit_rate" ] || [ "$metric" = "test_count" ] || [ "$metric" = "memory_efficiency" ]; then
             # Higher is better for these metrics
             if (( $(echo "$current_value < $critical" | bc -l) )); then
                 status="🔥 CRITICAL"
