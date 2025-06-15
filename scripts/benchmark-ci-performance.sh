@@ -501,7 +501,7 @@ collect_metrics() {
     local cache_hit_rate=0
     
     # Extract test execution metrics from cached test runner results
-    if [ -f .test-cache/results-*.json ]; then
+    if ls .test-cache/results-*.json 1> /dev/null 2>&1; then
         local latest_cache=$(ls -t .test-cache/results-*.json | head -1)
         if [ -f "$latest_cache" ]; then
             test_execution_time=$(jq -r '.results.execution_time // 0' "$latest_cache" 2>/dev/null || echo "0")

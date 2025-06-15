@@ -1,5 +1,52 @@
 # TODO - Project Tasks
 
+## 🚨 CRITICAL: CI Benchmark Performance Failure (MAIN CI BLOCKED)
+
+### Immediate CI Restoration (Emergency Priority)
+- [x] **Fix bash syntax error in benchmark script** - Resolve binary operator expected error on line 504 of benchmark-ci-performance.sh
+  - dependencies: none
+  - estimated: 5 minutes
+  - location: scripts/benchmark-ci-performance.sh:504
+  - error: "[: .test-cache/results-*.json: binary operator expected"
+  - impact: Breaks conditional logic in performance metric collection
+  - result: ✅ SUCCESS - Fixed bash glob pattern in conditional test using `ls` command with proper output redirection
+
+- [ ] **Investigate zero test execution detection** - Determine why benchmark script reports 0 tests executed when validation jobs run 120+ tests successfully
+  - depends-on: Fix bash syntax error in benchmark script
+  - estimated: 15 minutes
+  - validation: Compare main CI job test execution vs validation job test execution
+  - scope: Understand test execution context and timing in main CI workflow
+
+- [ ] **Fix cache hit rate detection logic** - Resolve 0% cache hit rate when test result caching should be functional
+  - depends-on: Investigate zero test execution detection
+  - estimated: 10 minutes
+  - location: scripts/benchmark-ci-performance.sh cache detection logic
+  - approach: Fix cache file path resolution and detection timing
+
+- [ ] **Correct memory monitoring assumptions** - Fix "No active Swift build processes detected" when builds should be monitored
+  - depends-on: Fix cache hit rate detection logic
+  - estimated: 10 minutes
+  - scope: Either adjust monitoring timing or use historical metrics from CI artifacts
+  - approach: Review process monitoring logic and timing assumptions
+
+- [ ] **Calibrate performance thresholds** - Adjust critical thresholds to match actual CI behavior patterns
+  - depends-on: Correct memory monitoring assumptions
+  - estimated: 10 minutes
+  - scope: Memory efficiency, cache hit rate, and test count thresholds
+  - approach: Set realistic baselines based on successful CI runs
+
+- [ ] **Test benchmark fixes locally** - Validate benchmark script corrections before CI deployment
+  - depends-on: Calibrate performance thresholds
+  - estimated: 10 minutes
+  - validation: Run ./scripts/benchmark-ci-performance.sh locally and verify metrics
+  - success-criteria: No bash errors, reasonable metric values
+
+- [ ] **Deploy and validate CI fixes** - Test benchmark corrections in CI environment
+  - depends-on: Test benchmark fixes locally
+  - estimated: 5 minutes
+  - validation: Trigger CI run and verify benchmark step completes successfully
+  - success-criteria: CI job completes without exit code 1, metrics collected properly
+
 ## 🚨 CRITICAL: CI Release Build Failures (ALL PR VALIDATION BLOCKED)
 
 ### Immediate CI Restoration (Emergency Priority)
