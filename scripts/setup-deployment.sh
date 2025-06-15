@@ -294,8 +294,8 @@ setup_manual_certificates() {
     # Encode files to base64
     log_info "Encoding certificate and provisioning profile..."
     
-    CERT_BASE64=$(base64 -i "$CERT_PATH")
-    PROFILE_BASE64=$(base64 -i "$PROFILE_PATH")
+    CERT_BASE64=$(base64 < "$CERT_PATH")
+    PROFILE_BASE64=$(base64 < "$PROFILE_PATH")
     
     # Add to environment file
     echo "" >> .env.deployment
@@ -334,7 +334,7 @@ setup_api_key() {
     fi
     
     # Encode API key to base64
-    API_KEY_BASE64=$(base64 -i "$API_KEY_PATH")
+    API_KEY_BASE64=$(base64 < "$API_KEY_PATH")
     
     # Add to environment file
     echo "" >> .env.deployment

@@ -234,15 +234,8 @@ encode_base64() {
     local platform=$(detect_platform)
     
     if [[ -f "$input" ]]; then
-        # Encode file
-        case "$platform" in
-            macos)
-                base64 -i "$input"
-                ;;
-            *)
-                base64 "$input"
-                ;;
-        esac
+        # Encode file (cross-platform compatible)
+        base64 < "$input"
     else
         # Encode string
         echo "$input" | base64
