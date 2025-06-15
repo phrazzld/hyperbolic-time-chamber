@@ -1,6 +1,78 @@
 # TODO - Project Tasks
 
-## 🔥 CRITICAL: CI Memory Benchmark Failures (ALL CI BLOCKED)
+## 🚨 CRITICAL: CI Release Build Failures (ALL PR VALIDATION BLOCKED)
+
+### Immediate CI Restoration (Emergency Priority)
+- [ ] **Fix @testable import in TestConfiguration module** - Remove @testable import WorkoutTracker from WorkoutTestDataFactory.swift that causes release build failures
+  - dependencies: none
+  - estimated: 15 minutes
+  - location: Tests/TestConfiguration/WorkoutTestDataFactory.swift:2
+  - error: "module 'WorkoutTracker' was not compiled for testing" in release builds
+  - impact: blocks all PR validation workflows (iOS 17, iOS 18, current iOS)
+  - approach: Make necessary testing utilities public and use regular import
+
+- [ ] **Identify TestConfiguration internal API dependencies** - Analyze what WorkoutTracker internal APIs are required by test data factory
+  - depends-on: Fix @testable import in TestConfiguration module
+  - estimated: 10 minutes
+  - validation: grep -r "WorkoutTracker\." Tests/TestConfiguration/ to find usage patterns
+  - scope: Determine minimal public API surface needed for testing
+
+- [ ] **Expose public testing utilities in WorkoutTracker** - Create public testing helpers to replace @testable import functionality
+  - depends-on: Identify TestConfiguration internal API dependencies
+  - estimated: 15 minutes
+  - scope: Add public extensions or factory methods for test data creation
+  - location: Sources/WorkoutTracker/ module files
+
+- [ ] **Validate release build compatibility** - Test that all CI configurations build successfully with the fix
+  - depends-on: Expose public testing utilities in WorkoutTracker
+  - estimated: 10 minutes
+  - validation: swift build -c release && swift test -c release
+  - success-criteria: No compilation errors in release configuration
+
+### Build Infrastructure Cleanup (High Priority)
+- [ ] **Fix SPM unhandled file warnings** - Properly declare or exclude files causing Swift Package Manager warnings
+  - depends-on: Validate release build compatibility
+  - estimated: 10 minutes
+  - files: Sources/WorkoutTracker/Info.plist, Tests/TestConfiguration/*.swift.disabled
+  - approach: Add resource declarations or exclude patterns in Package.swift
+
+- [ ] **Investigate dependency re-cloning issues** - Fix cache inconsistencies causing SPM dependencies to be re-fetched despite cache hits
+  - depends-on: Fix SPM unhandled file warnings
+  - estimated: 15 minutes
+  - affected: xctest-dynamic-overlay, swift-custom-dump, swift-snapshot-testing, swift-syntax
+  - approach: Review cache key generation and dependency resolution
+
+### CI Validation Matrix (High Priority)
+- [ ] **Test fix across all Xcode versions** - Validate solution works in CI matrix (Xcode 15.4, 16.1, 16.2)
+  - depends-on: Fix SPM unhandled file warnings
+  - estimated: 5 minutes
+  - validation: Monitor CI runs for all validation jobs passing
+  - scope: iOS 17 Support, iOS 18 Support, Current iOS
+
+- [ ] **Verify test functionality preservation** - Ensure all existing test capabilities remain functional after @testable import removal
+  - depends-on: Test fix across all Xcode versions
+  - estimated: 10 minutes
+  - validation: swift test --parallel && test coverage verification
+  - critical: No test failures or reduced testing capability
+
+### Prevention & Documentation (Medium Priority)
+- [ ] **Add release build validation to pre-commit hooks** - Prevent future @testable import issues in release-incompatible contexts
+  - depends-on: Verify test functionality preservation
+  - estimated: 15 minutes
+  - location: scripts/git-hooks/pre-commit
+  - approach: Add swift build -c release validation step
+
+- [ ] **Update CLAUDE.md with @testable import guidelines** - Document patterns for test configuration modules and release build compatibility
+  - depends-on: Add release build validation to pre-commit hooks
+  - estimated: 10 minutes
+  - scope: Best practices for testing utilities, public API design, build configuration considerations
+
+- [ ] **Create automated detection for @testable import issues** - Implement linting rule to flag @testable imports in contexts that must support release builds
+  - depends-on: Update CLAUDE.md with @testable import guidelines
+  - estimated: 20 minutes
+  - approach: SwiftLint custom rule or build script validation
+
+## 🔥 CRITICAL: CI Memory Benchmark Failures (RESOLVED)
 
 ### Immediate CI Fix (Emergency Priority)
 - [x] **Fix CI memory threshold violations** - Implement environment-aware memory baselines in benchmark script; current system memory measurement (6GB) exceeds process memory thresholds (4GB critical)
