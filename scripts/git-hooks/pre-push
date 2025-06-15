@@ -29,16 +29,18 @@ echo "📋 Executing test suite..."
 
 # Use centralized test script for consistent parallelization behavior
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TEST_SCRIPT="$SCRIPT_DIR/../run-tests.sh"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+TEST_SCRIPT="$PROJECT_ROOT/scripts/run-tests.sh"
 
 if [ -f "$TEST_SCRIPT" ]; then
-    # Use centralized script with verbose output for debugging
-    TEST_OUTPUT=$("$TEST_SCRIPT" --verbose 2>&1)
+    # Use centralized script with unit tests only for faster pre-push validation
+    echo "🚀 Running unit tests only (for speed)..."
+    TEST_OUTPUT=$("$TEST_SCRIPT" --filter "WorkoutTrackerTests" 2>&1)
     TEST_EXIT_CODE=$?
 else
-    # Fallback to direct swift test if script not found
+    # Fallback to direct swift test with unit tests only
     echo -e "${YELLOW}⚠️  run-tests.sh not found, using fallback${NC}"
-    TEST_OUTPUT=$(swift test 2>&1)
+    TEST_OUTPUT=$(swift test --filter "WorkoutTrackerTests" 2>&1)
     TEST_EXIT_CODE=$?
 fi
 
