@@ -9,6 +9,7 @@ excluded:
   - build
   - .build
   - DerivedData
+  - Tests/WorkoutTrackerUITests  # UI tests with third-party Fastlane generated code
 
 # Enabled rules - comprehensive set for quality
 opt_in_rules:
@@ -101,6 +102,7 @@ custom_rules:
     regex: "as!"
     message: "Use safe casting with 'as?' or guard statements"
     severity: error
+    
 
 # Reporter type
 reporter: "xcode"

@@ -1,0 +1,389 @@
+# Fastfile for WorkoutTracker iOS App
+# Automated TestFlight deployment and release management
+
+default_platform(:ios)
+
+platform :ios do
+  # Build configuration
+  SCHEME_NAME = "WorkoutTracker"
+  WORKSPACE_PATH = "WorkoutTracker.xcworkspace"
+  PROJECT_PATH = "Package.swift"
+  
+  # App Store Connect configuration
+  APP_IDENTIFIER = "com.yourcompany.WorkoutTracker"
+  TEAM_ID = ENV["TEAM_ID"]
+  
+  # Build settings
+  BUILD_CONFIGURATION = "Release"
+  EXPORT_METHOD = "app-store"
+  
+  before_all do
+    # Ensure we're in the correct directory
+    ensure_git_status_clean unless ENV["SKIP_GIT_CHECK"]
+    
+    # Set up environment
+    setup_ci if ENV["CI"]
+  end
+
+  desc "Build the app for testing"
+  lane :build do
+    # Increment build number based on CI build number or timestamp
+    if ENV["CI"]
+      increment_build_number(
+        xcodeproj: find_xcodeproj,
+        build_number: ENV["GITHUB_RUN_NUMBER"] || Time.now.to_i.to_s
+      )
+    end
+    
+    # Build the app
+    build_app(
+      scheme: SCHEME_NAME,
+      configuration: BUILD_CONFIGURATION,
+      export_method: EXPORT_METHOD,
+      export_options: {
+        method: EXPORT_METHOD,
+        teamID: TEAM_ID,
+        uploadBitcode: false,
+        uploadSymbols: true,
+        compileBitcode: false
+      },
+      output_directory: "./build/fastlane",
+      output_name: "WorkoutTracker.ipa",
+      clean: true,
+      include_symbols: true,
+      include_bitcode: false
+    )
+  end
+
+  desc "Deploy a new build to TestFlight"
+  lane :beta do
+    # Ensure certificates and provisioning profiles are set up
+    setup_certificates
+    
+    # Build the app
+    build
+    
+    # Upload to TestFlight
+    upload_to_testflight(
+      api_key_path: ENV["APP_STORE_CONNECT_API_KEY_PATH"],
+      skip_waiting_for_build_processing: false,
+      skip_submission: true,
+      notify_external_testers: false,
+      groups: ["Internal Testing"],
+      changelog: get_changelog_for_build
+    )
+    
+    # Clean up build artifacts
+    clean_build_artifacts
+    
+    # Notify success
+    notify_deployment_success
+  end
+
+  desc "Generate App Store screenshots"
+  lane :screenshots do
+    # Clean previous screenshots
+    clear_derived_data
+    
+    # Build for simulator first to ensure everything compiles
+    build_for_testing(
+      scheme: SCHEME_NAME,
+      configuration: "Debug",
+      derived_data_path: "./build/DerivedData"
+    )
+    
+    # Generate screenshots using snapshot
+    snapshot(
+      scheme: SCHEME_NAME,
+      output_directory: "./screenshots",
+      clear_previous_screenshots: true,
+      stop_after_first_error: false,
+      number_of_retries: 3,
+      concurrent_simulators: true,
+      override_status_bar: true,
+      localize_simulator: true
+    )
+    
+    # Process and validate screenshots
+    validate_screenshots
+    
+    # Generate screenshot summary
+    generate_screenshot_summary
+    
+    UI.success("📱 Screenshots generated successfully!")
+    UI.success("📁 Screenshots saved to: #{File.expand_path('./screenshots')}")
+  end
+
+  desc "Generate screenshots and upload to App Store Connect"
+  lane :screenshots_and_upload do
+    # Generate screenshots
+    screenshots
+    
+    # Setup certificates for App Store Connect upload
+    setup_certificates
+    
+    # Upload screenshots to App Store Connect
+    upload_to_app_store(
+      api_key_path: ENV["APP_STORE_CONNECT_API_KEY_PATH"],
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_app_version_update: true,
+      overwrite_screenshots: true,
+      submit_for_review: false
+    )
+    
+    UI.success("📱🚀 Screenshots uploaded to App Store Connect!")
+  end
+
+  desc "Validate generated screenshots"
+  private_lane :validate_screenshots do
+    screenshots_dir = "./screenshots"
+    required_devices = [
+      "iPhone 15 Pro Max",
+      "iPhone 15 Plus", 
+      "iPhone 15",
+      "iPhone SE (3rd generation)",
+      "iPad Pro (12.9-inch) (6th generation)",
+      "iPad Pro (11-inch) (4th generation)"
+    ]
+    
+    required_screenshots = [
+      "01-EmptyState",
+      "02-AddWorkoutForm", 
+      "03-WorkoutInProgress",
+      "04-WorkoutHistory",
+      "05-ExportFeature"
+    ]
+    
+    missing_screenshots = []
+    
+    required_devices.each do |device|
+      device_dir = File.join(screenshots_dir, "en-US", device)
+      next unless File.directory?(device_dir)
+      
+      required_screenshots.each do |screenshot|
+        screenshot_file = File.join(device_dir, "#{screenshot}.png")
+        unless File.exist?(screenshot_file)
+          missing_screenshots << "#{device}/#{screenshot}.png"
+        end
+      end
+    end
+    
+    unless missing_screenshots.empty?
+      UI.error("Missing screenshots:")
+      missing_screenshots.each { |screenshot| UI.error("  - #{screenshot}") }
+      UI.user_error!("Screenshot validation failed. Some required screenshots are missing.")
+    end
+    
+    UI.success("✅ All required screenshots generated successfully")
+  end
+
+  desc "Generate screenshot summary report"
+  private_lane :generate_screenshot_summary do
+    screenshots_dir = "./screenshots"
+    summary_file = File.join(screenshots_dir, "screenshot-summary.md")
+    
+    summary_content = "# App Store Screenshots Summary\n\n"
+    summary_content += "Generated: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    
+    # Count screenshots by device
+    device_counts = {}
+    Dir.glob(File.join(screenshots_dir, "en-US", "*")).each do |device_path|
+      next unless File.directory?(device_path)
+      
+      device_name = File.basename(device_path)
+      screenshot_count = Dir.glob(File.join(device_path, "*.png")).length
+      device_counts[device_name] = screenshot_count
+    end
+    
+    summary_content += "## Screenshots by Device\n\n"
+    device_counts.each do |device, count|
+      summary_content += "- **#{device}**: #{count} screenshots\n"
+    end
+    
+    summary_content += "\n## Screenshot Types\n\n"
+    summary_content += "1. **01-EmptyState**: Clean first impression of the app\n"
+    summary_content += "2. **02-AddWorkoutForm**: Workout entry interface\n"
+    summary_content += "3. **03-WorkoutInProgress**: Active workout session\n"
+    summary_content += "4. **04-WorkoutHistory**: Progress tracking view\n"
+    summary_content += "5. **05-ExportFeature**: Data export capabilities\n"
+    
+    total_screenshots = device_counts.values.sum
+    summary_content += "\n**Total Screenshots**: #{total_screenshots}\n"
+    
+    File.write(summary_file, summary_content)
+    UI.message("📊 Screenshot summary saved to: #{summary_file}")
+  end
+
+  desc "Set up certificates and provisioning profiles"
+  private_lane :setup_certificates do
+    # Use match for certificate management (recommended)
+    if ENV["MATCH_GIT_URL"]
+      match(
+        type: "appstore",
+        app_identifier: APP_IDENTIFIER,
+        git_url: ENV["MATCH_GIT_URL"],
+        readonly: ENV["CI"] ? true : false
+      )
+    else
+      # Fallback to manual certificate management for initial setup
+      UI.important("Using manual certificate management. Consider setting up match for production use.")
+      
+      # Import certificates from environment variables if available
+      if ENV["DISTRIBUTION_CERTIFICATE_P12_BASE64"]
+        import_certificate(
+          certificate_path: decode_certificate("DISTRIBUTION_CERTIFICATE_P12_BASE64", "dist_cert.p12"),
+          certificate_password: ENV["DISTRIBUTION_CERTIFICATE_PASSWORD"] || "",
+          keychain_name: ENV["MATCH_KEYCHAIN_NAME"] || "login.keychain"
+        )
+      end
+      
+      # Install provisioning profile
+      if ENV["PROVISIONING_PROFILE_BASE64"]
+        install_provisioning_profile(
+          path: decode_provisioning_profile("PROVISIONING_PROFILE_BASE64", "app_store.mobileprovision")
+        )
+      end
+    end
+  end
+
+  desc "Get changelog for current build"
+  private_lane :get_changelog_for_build do
+    # Try to generate proper release notes from conventional commits
+    begin
+      # Get current version for release notes
+      version_number = get_version_number(xcodeproj: find_xcodeproj)
+      build_number = get_build_number(xcodeproj: find_xcodeproj)
+      
+      # Generate release notes using our script
+      release_notes_script = File.expand_path("../scripts/generate-release-notes.py")
+      if File.exist?(release_notes_script)
+        # Generate GitHub-formatted release notes
+        sh("python3 #{release_notes_script} --github-format --version #{version_number}")
+        
+        # Read the generated notes
+        notes_file = File.expand_path("../release-notes/release-notes.md")
+        if File.exist?(notes_file)
+          release_notes = File.read(notes_file)
+          
+          # Limit length for TestFlight (4000 char limit)
+          if release_notes.length > 3900
+            release_notes = release_notes[0..3900] + "\n\n... (view full release notes on GitHub)"
+          end
+          
+          return release_notes
+        end
+      end
+      
+      # Fallback to simple git log
+      last_tag = last_git_tag
+      changelog = changelog_from_git_commits(
+        between: [last_tag, "HEAD"],
+        pretty: "- %s",
+        merge_commit_filtering: "exclude_merges"
+      )
+      
+      return changelog.empty? ? "Bug fixes and improvements" : changelog
+    rescue => e
+      UI.error("Failed to generate release notes: #{e.message}")
+      return "Bug fixes and improvements"
+    end
+  end
+
+  desc "Clean up build artifacts"
+  private_lane :clean_build_artifacts do
+    # Clean up temporary files
+    sh("rm -rf ../build/fastlane") if File.directory?("../build/fastlane")
+    
+    # Clean up decoded certificates (security)
+    sh("find /tmp -name '*.p12' -delete 2>/dev/null || true")
+    sh("find /tmp -name '*.mobileprovision' -delete 2>/dev/null || true")
+  end
+
+  desc "Decode base64 certificate and return path"
+  private_lane :decode_certificate do |options|
+    cert_name = options[:cert_name]
+    file_name = options[:file_name]
+    
+    cert_data = ENV[cert_name]
+    return nil unless cert_data
+    
+    cert_path = "/tmp/#{file_name}"
+    File.write(cert_path, Base64.decode64(cert_data))
+    cert_path
+  end
+
+  desc "Decode base64 provisioning profile and return path"
+  private_lane :decode_provisioning_profile do |options|
+    profile_name = options[:profile_name]
+    file_name = options[:file_name]
+    
+    profile_data = ENV[profile_name]
+    return nil unless profile_data
+    
+    profile_path = "/tmp/#{file_name}"
+    File.write(profile_path, Base64.decode64(profile_data))
+    profile_path
+  end
+
+  desc "Find Xcode project file"
+  private_lane :find_xcodeproj do
+    # Look for .xcodeproj file in current directory
+    xcodeproj_files = Dir.glob("*.xcodeproj")
+    if xcodeproj_files.empty?
+      UI.user_error!("No .xcodeproj file found. This is required for build number increment.")
+    end
+    xcodeproj_files.first
+  end
+
+  desc "Notify deployment success"
+  private_lane :notify_deployment_success do
+    build_number = get_build_number(xcodeproj: find_xcodeproj)
+    version_number = get_version_number(xcodeproj: find_xcodeproj)
+    
+    UI.success("🚀 Successfully deployed WorkoutTracker v#{version_number} (#{build_number}) to TestFlight!")
+    
+    # Add GitHub Actions output for notifications
+    if ENV["GITHUB_OUTPUT"]
+      File.open(ENV["GITHUB_OUTPUT"], "a") do |f|
+        f.puts "version_number=#{version_number}"
+        f.puts "build_number=#{build_number}"
+        f.puts "deployment_status=success"
+      end
+    end
+  end
+
+  desc "Handle deployment errors"
+  error do |lane, exception|
+    UI.error("❌ Deployment failed in lane '#{lane}': #{exception.message}")
+    
+    # Clean up on error
+    clean_build_artifacts
+    
+    # Add GitHub Actions output for error handling
+    if ENV["GITHUB_OUTPUT"]
+      File.open(ENV["GITHUB_OUTPUT"], "a") do |f|
+        f.puts "deployment_status=failed"
+        f.puts "error_message=#{exception.message}"
+      end
+    end
+  end
+
+  desc "Setup for CI environment"
+  private_lane :setup_ci do
+    # Create keychain for CI
+    create_keychain(
+      name: ENV["MATCH_KEYCHAIN_NAME"] || "fastlane_tmp_keychain",
+      password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "temp_password",
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false
+    )
+  end
+end
+
+# Global error handling
+error do |lane, exception|
+  UI.error("Error in lane #{lane}: #{exception.message}")
+end

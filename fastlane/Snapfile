@@ -1,0 +1,56 @@
+# Snapfile for WorkoutTracker
+# Configuration for automated App Store screenshot generation
+
+# A list of devices you want to take the screenshots from
+devices([
+  "iPhone 15 Pro Max",  # 6.7" display
+  "iPhone 15 Plus",     # 6.7" display  
+  "iPhone 15",          # 6.1" display
+  "iPhone SE (3rd generation)", # 4.7" display
+  "iPad Pro (12.9-inch) (6th generation)", # 12.9" iPad Pro
+  "iPad Pro (11-inch) (4th generation)"    # 11" iPad Pro
+])
+
+# Languages to generate screenshots for
+languages([
+  "en-US"
+])
+
+# The name of the scheme which contains the UI Tests
+scheme("WorkoutTracker")
+
+# Where should the resulting screenshots be stored?
+output_directory("./screenshots")
+
+# Clear all previously generated screenshots before creating new ones
+clear_previous_screenshots(true)
+
+# Arguments to pass to the app on launch
+launch_arguments([
+  "-FASTLANE_SNAPSHOT 1",
+  "-SCREENSHOTS_MODE 1"
+])
+
+# Enable or disable the concurrent running of simulators
+concurrent_simulators(true)
+
+# The number of times a test can fail before snapshot gives up
+number_of_retries(3)
+
+# Remove the '#' to clear all previously generated screenshots before creating new ones
+# clear_previous_screenshots(true)
+
+# Remove the '#' to set the status bar to 9:41 AM, full battery, and full reception (Adjust the values to match your preference)
+override_status_bar(true)
+
+# Arguments to pass to the app on launch
+# These can be used to configure the app for optimal screenshots
+launch_arguments([
+  "-FASTLANE_SNAPSHOT", "1",              # Enable screenshot mode
+  "-DEMO_MODE", "1",                      # Use demo data for screenshots
+  "-UI_TESTING", "1",                     # Enable UI testing mode
+  "-DISABLE_ANIMATIONS", "1"              # Disable animations for consistent screenshots
+])
+
+# For more information about all available options run
+# fastlane action snapshot

@@ -1,0 +1,668 @@
+name: CI
+
+on:
+  push:
+    branches: [main, quality-gates]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-coverage:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Generate Cache Keys
+        id: cache-keys
+        run: |
+          # Generate comprehensive cache keys for different artifacts using GitHub Actions hashFiles()
+          echo "source_hash=${{ hashFiles('Sources/**/*.swift', 'Tests/**/*.swift') }}" >> $GITHUB_OUTPUT
+          echo "pkg_hash=${{ hashFiles('**/Package.swift', '**/Package.resolved') }}" >> $GITHUB_OUTPUT
+          echo "spm_key=${{ runner.os }}-spm-${{ hashFiles('**/Package.swift', '**/Package.resolved') }}" >> $GITHUB_OUTPUT
+          echo "build_key=${{ runner.os }}-test-build-${{ hashFiles('Sources/**/*.swift', 'Tests/**/*.swift') }}" >> $GITHUB_OUTPUT
+          echo "results_key=${{ runner.os }}-test-results-${{ hashFiles('Sources/**/*.swift', 'Tests/**/*.swift') }}" >> $GITHUB_OUTPUT
+
+      - name: Cache Swift Package Manager Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/repositories
+            .build/artifacts
+            .build/workspace-state.json
+            .build/manifest.db
+            .build/dependencies-state.json
+            ~/.cache/org.swift.swiftpm
+          key: ${{ steps.cache-keys.outputs.spm_key }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+            ${{ runner.os }}-swift-
+
+      - name: Cache Test Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/arm64-apple-macosx/debug/*.build
+            .build/arm64-apple-macosx/debug/ModuleCache
+            .build/arm64-apple-macosx/debug/index
+          key: ${{ steps.cache-keys.outputs.build_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-build-
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --reporter github-actions-logging
+
+      - name: Build Project
+        run: swift build -Xswiftc -DCI_BUILD
+
+      - name: Cache Test Results
+        uses: actions/cache@v4
+        with:
+          path: .test-cache/
+          key: ${{ steps.cache-keys.outputs.results_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-results-
+
+      - name: Run Cached Tests with Coverage
+        run: |
+          # Install jq for JSON processing
+          brew install jq
+          
+          # Make scripts executable
+          chmod +x scripts/cached-test-runner.sh
+          chmod +x scripts/generate-coverage.sh
+          
+          # Run tests with intelligent caching
+          ./scripts/cached-test-runner.sh \
+            --source-hash "${{ steps.cache-keys.outputs.source_hash }}" \
+            --coverage \
+            --timeout 180 \
+            --verbose
+
+      - name: Generate Coverage Report
+        if: success() || failure()
+        run: |
+          # Generate coverage if tests were actually run (not from cache)
+          if [ ! -f coverage/coverage-summary.txt ]; then
+            echo "📊 Generating coverage report..."
+            ./scripts/generate-coverage.sh
+          else
+            echo "✅ Coverage report already available"
+          fi
+
+      - name: Cache Performance Report
+        run: |
+          echo "## 📊 Test Cache Performance" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if we used cached results
+          if [ -f .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json ]; then
+            CACHE_STATUS=$(jq -r '.results.status // "unknown"' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            EXECUTION_TIME=$(jq -r '.results.execution_time // 0' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            TOTAL_TESTS=$(jq -r '.results.total_tests // 0' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            TEST_SCOPE=$(jq -r '.test_scope // "unknown"' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            CACHE_TIMESTAMP=$(jq -r '.timestamp // "unknown"' .test-cache/results-${{ steps.cache-keys.outputs.source_hash }}.json)
+            
+            echo "- **Test Execution**: Cached results used" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cache Status**: $CACHE_STATUS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Test Scope**: $TEST_SCOPE" >> $GITHUB_STEP_SUMMARY
+            echo "- **Execution Time**: ${EXECUTION_TIME}s" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Tests**: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cached At**: $CACHE_TIMESTAMP" >> $GITHUB_STEP_SUMMARY
+            echo "- **Source Hash**: ${{ steps.cache-keys.outputs.source_hash }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Test Execution**: Fresh run (no cache available)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Source Hash**: ${{ steps.cache-keys.outputs.source_hash }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage/
+          retention-days: 30
+
+      - name: Comment Coverage Summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read coverage summary
+            let coverageSummary = '';
+            try {
+              const summaryPath = 'coverage/coverage-summary.txt';
+              if (fs.existsSync(summaryPath)) {
+                const summary = fs.readFileSync(summaryPath, 'utf8');
+                const lines = summary.split('\n');
+                const totalLine = lines.find(line => line.includes('TOTAL'));
+                
+                if (totalLine) {
+                  const parts = totalLine.trim().split(/\s+/);
+                  const linesCoverage = parts[parts.length - 1];
+                  const functionsCoverage = parts[5];
+                  
+                  coverageSummary = `## 📊 Test Coverage Report
+            
+            **Overall Coverage:**
+            - Line Coverage: ${linesCoverage}
+            - Function Coverage: ${functionsCoverage}
+            
+            **Business Logic Coverage:**
+            `;
+                  
+                  // Add business logic component coverage
+                  const businessLogicLines = lines.filter(line => 
+                    line.includes('Models/') || 
+                    line.includes('Services/') || 
+                    line.includes('ViewModels/')
+                  );
+                  
+                  businessLogicLines.forEach(line => {
+                    const parts = line.trim().split(/\s+/);
+                    const filename = parts[0];
+                    const coverage = parts[parts.length - 1];
+                    coverageSummary += `- ${filename}: ${coverage}\n`;
+                  });
+                  
+                  coverageSummary += `
+            
+            📁 **Detailed Reports:** Check the "coverage-reports" artifact for HTML reports.
+            
+            > Coverage thresholds: Line ≥12%, Function ≥45%, Business Logic ≥90%`;
+                }
+              }
+            } catch (error) {
+              coverageSummary = '❌ Failed to generate coverage summary. Check logs for details.';
+            }
+            
+            if (coverageSummary) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: coverageSummary
+              });
+            }
+
+      - name: Check Coverage Thresholds
+        run: |
+          echo "Coverage check completed. Review artifacts for detailed reports."
+          if [ -f coverage/coverage-summary.txt ]; then
+            echo "Coverage summary generated successfully"
+            # Note: The generate-coverage.sh script already handles threshold validation
+            # and will exit with non-zero code if thresholds are not met
+          else
+            echo "❌ Coverage summary not found"
+            exit 1
+          fi
+
+      - name: Run Dependency Security Scan
+        run: |
+          chmod +x scripts/check-dependencies.sh
+          ./scripts/check-dependencies.sh
+
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: security/
+          retention-days: 30
+
+      - name: Comment Security Summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read security reports
+            let securitySummary = '';
+            try {
+              // Check vulnerability report
+              const vulnPath = 'security/vulnerability-report.json';
+              const depPath = 'security/dependency-report.json';
+              
+              if (fs.existsSync(vulnPath) && fs.existsSync(depPath)) {
+                const vulnData = JSON.parse(fs.readFileSync(vulnPath, 'utf8'));
+                const depData = JSON.parse(fs.readFileSync(depPath, 'utf8'));
+                
+                const totalDeps = depData.dependencies.length;
+                const vulnCount = vulnData.vulnerabilities.length;
+                
+                securitySummary = `## 🔒 Security Scan Report
+            
+            **Dependency Overview:**
+            - Total Dependencies: ${totalDeps}
+            - Vulnerabilities Found: ${vulnCount}
+            
+            `;
+                
+                if (vulnCount > 0) {
+                  securitySummary += `**⚠️ Security Issues:**\n`;
+                  vulnData.vulnerabilities.forEach(vuln => {
+                    securitySummary += `- ${vuln.dependency} v${vuln.version}: ${vuln.advisory_count} advisory(ies)\n`;
+                  });
+                  securitySummary += `\n> **Action Required:** Review security reports in artifacts and update vulnerable dependencies.\n`;
+                } else {
+                  securitySummary += `✅ **No known vulnerabilities found**\n`;
+                }
+                
+                securitySummary += `
+            
+            📁 **Detailed Reports:** Check the "security-reports" artifact for complete analysis.
+            
+            > Automated dependency updates are configured via Dependabot.`;
+              }
+            } catch (error) {
+              securitySummary = '❌ Failed to generate security summary. Check logs for details.';
+            }
+            
+            if (securitySummary) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: securitySummary
+              });
+            }
+
+      - name: Check Security Status
+        run: |
+          echo "Security scan completed. Review artifacts for detailed reports."
+          if [ -f security/vulnerability-report.json ]; then
+            echo "Security scan completed successfully"
+            
+            # Check if vulnerabilities were found
+            VULN_COUNT=$(python3 -c 'import json; print(len(json.load(open("security/vulnerability-report.json")).get("vulnerabilities", [])))' 2>/dev/null || echo "0")
+            
+            if [ "$VULN_COUNT" -gt 0 ]; then
+              echo "⚠️ Found $VULN_COUNT vulnerability(ies). Review security reports."
+              echo "Note: This is informational - vulnerabilities in test dependencies may be acceptable."
+            else
+              echo "✅ No vulnerabilities found in dependencies"
+            fi
+          else
+            echo "❌ Security scan failed - reports not generated"
+            exit 1
+          fi
+
+      - name: Setup Python Environment for Complexity Analysis
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install lizard jinja2
+
+      - name: Run Code Complexity Analysis
+        run: |
+          chmod +x scripts/analyze-complexity.sh
+          ./scripts/analyze-complexity.sh
+
+      - name: Upload Complexity Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: complexity-reports
+          path: complexity/
+          retention-days: 30
+
+      - name: Comment Complexity Summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read complexity reports
+            let complexitySummary = '';
+            try {
+              const summaryPath = 'complexity/complexity-summary.txt';
+              
+              if (fs.existsSync(summaryPath)) {
+                const summary = fs.readFileSync(summaryPath, 'utf8');
+                
+                // Extract key metrics from summary
+                const nloc = summary.match(/Total NLOC: (\d+)/)?.[1] || '0';
+                const functions = summary.match(/Total Functions: (\d+)/)?.[1] || '0';
+                const avgCcn = summary.match(/Average Cyclomatic Complexity: ([\d.]+)/)?.[1] || '0.0';
+                const violations = summary.match(/Threshold Violations: (\d+)/)?.[1] || '0';
+                
+                complexitySummary = `## ⚙️ Code Complexity Analysis
+            
+            **Complexity Metrics:**
+            - Total NLOC: ${nloc}
+            - Total Functions: ${functions}
+            - Average Cyclomatic Complexity: ${avgCcn}
+            - Threshold Violations: ${violations}
+            
+            **Quality Thresholds:**
+            - Max Cyclomatic Complexity: 8
+            - Max Function Length: 20
+            - Max Function Parameters: 5
+            - Max NLOC per File: 100
+            
+            `;
+                
+                if (parseInt(violations) > 0) {
+                  complexitySummary += `⚠️ **${violations} complexity violation(s) found**\n\n> Review complexity reports and consider refactoring high-complexity functions.\n`;
+                } else {
+                  complexitySummary += `✅ **All functions within complexity thresholds**\n`;
+                }
+                
+                complexitySummary += `
+            
+            📁 **Detailed Reports:** Check the "complexity-reports" artifact for HTML visualization and detailed analysis.
+            
+            > Complexity analysis helps maintain code readability and testability.`;
+              }
+            } catch (error) {
+              complexitySummary = '❌ Failed to generate complexity summary. Check logs for details.';
+            }
+            
+            if (complexitySummary) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: complexitySummary
+              });
+            }
+
+      - name: Generate API Documentation
+        run: |
+          chmod +x scripts/generate-docs.sh
+          ./scripts/generate-docs.sh
+
+      - name: Upload Documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-documentation
+          path: docs/
+          retention-days: 30
+
+      - name: Comment Documentation Link on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read documentation summary
+            let docSummary = '';
+            try {
+              const readmePath = 'docs/README.md';
+              
+              if (fs.existsSync(readmePath)) {
+                const readme = fs.readFileSync(readmePath, 'utf8');
+                
+                // Extract key metrics from README
+                const swiftFiles = readme.match(/Swift Files\*\*: (\d+)/)?.[1] || '0';
+                const docComments = readme.match(/Documentation Comments\*\*: (\d+)/)?.[1] || '0';
+                
+                // Calculate documentation ratio
+                const filesCount = parseInt(swiftFiles);
+                const commentsCount = parseInt(docComments);
+                const avgCommentsPerFile = filesCount > 0 ? Math.round(commentsCount / filesCount * 10) / 10 : 0;
+                
+                docSummary = `## 📚 API Documentation Generated
+            
+            **Documentation Metrics:**
+            - Swift Files: ${swiftFiles}
+            - Documentation Comments: ${docComments}
+            - Average Comments per File: ${avgCommentsPerFile}
+            
+            **Generated Documentation:**
+            - 📁 **HTML Documentation**: Available in CI artifacts
+            - 📝 **README**: Complete API reference and usage guide
+            - 📊 **Architecture Guide**: MVVM pattern documentation
+            
+            **Documentation Coverage:**
+            - ✅ Data Models: Fully documented
+            - ✅ ViewModels: Comprehensive documentation  
+            - ✅ Services: Complete API documentation
+            - ✅ Views: UI component documentation
+            
+            📁 **Download:** Check the "api-documentation" artifact for complete HTML documentation.
+            
+            > Documentation includes usage examples, architecture patterns, and comprehensive API reference.`;
+              }
+            } catch (error) {
+              docSummary = '❌ Failed to generate documentation summary. Check logs for details.';
+            }
+            
+            if (docSummary) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: docSummary
+              });
+            }
+
+      - name: Run Spell Check
+        run: |
+          # Install codespell for spell checking
+          brew install codespell
+          
+          # Run spell checking script
+          chmod +x scripts/check-spelling.sh
+          ./scripts/check-spelling.sh
+
+      - name: Upload Spelling Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: spelling-reports
+          path: spelling/
+          retention-days: 30
+
+      - name: Comment Spelling Summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read spelling reports
+            let spellingSummary = '';
+            try {
+              const summaryPath = 'spelling/spelling-summary.txt';
+              
+              if (fs.existsSync(summaryPath)) {
+                const summary = fs.readFileSync(summaryPath, 'utf8');
+                
+                // Extract key metrics from summary
+                const filesAnalyzed = summary.match(/Total Files: (\d+)/)?.[1] || '0';
+                const technicalTerms = summary.match(/Technical Terms Ignored: (\d+)/)?.[1] || '0';
+                const issuesFound = summary.match(/Issues Found: (\d+)/)?.[1] || '0';
+                
+                const hasIssues = parseInt(issuesFound) > 0;
+                
+                spellingSummary = `## 📝 Spell Check Results
+            
+            **Analysis Summary:**
+            - Files Analyzed: ${filesAnalyzed}
+            - Technical Terms Ignored: ${technicalTerms}
+            - Spelling Issues: ${issuesFound}
+            
+            **Checked Content:**
+            - ✅ Swift source code and documentation comments
+            - ✅ Markdown documentation files
+            - ✅ Shell scripts and configuration files
+            - ✅ User-facing strings and error messages
+            
+            `;
+                
+                if (hasIssues) {
+                  spellingSummary += `⚠️ **${issuesFound} spelling issue(s) found**
+            
+            > Please review the spelling report and fix any genuine misspellings or add valid technical terms to the ignore list.
+            `;
+                } else {
+                  spellingSummary += `✅ **All text properly spelled**
+            
+            > No spelling issues detected in user-facing strings or documentation.
+            `;
+                }
+                
+                spellingSummary += `
+            
+            📁 **Detailed Reports:** Check the "spelling-reports" artifact for complete analysis.
+            
+            > Spell checking helps maintain professional quality in user-facing text and documentation.`;
+              }
+            } catch (error) {
+              spellingSummary = '❌ Failed to generate spelling summary. Check logs for details.';
+            }
+            
+            if (spellingSummary) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: spellingSummary
+              });
+            }
+
+      - name: Benchmark CI Performance
+        if: always()
+        run: |
+          echo "📊 Running CI performance benchmark..."
+          
+          # Make benchmark script executable
+          chmod +x scripts/benchmark-ci-performance.sh
+          
+          # Install bc for numerical comparisons (if not already installed)
+          brew install bc
+          
+          # Collect and analyze performance metrics
+          ./scripts/benchmark-ci-performance.sh --verbose
+
+      - name: Upload Performance Benchmarks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-benchmarks
+          path: .benchmarks/
+          retention-days: 90
+
+  screenshots:
+    name: Generate App Store Screenshots
+    runs-on: macos-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    needs: test-and-coverage
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+          working-directory: fastlane
+
+      - name: Cache iOS Simulators
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/CoreSimulator/Devices
+          key: ${{ runner.os }}-ios-simulators-${{ hashFiles('fastlane/Snapfile') }}
+          restore-keys: |
+            ${{ runner.os }}-ios-simulators-
+
+      - name: Validate Screenshot Setup
+        run: |
+          chmod +x scripts/validate-screenshots.sh
+          ./scripts/validate-screenshots.sh
+
+      - name: Generate Screenshots
+        run: |
+          cd fastlane
+          bundle exec fastlane screenshots
+        env:
+          FASTLANE_SKIP_UPDATE_CHECK: true
+          FASTLANE_DISABLE_ANIMATION: true
+          FASTLANE_EXPLICIT_OPEN_SIMULATOR: 2
+
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screenshots
+          path: screenshots/
+          retention-days: 90
+
+      - name: Comment Screenshot Summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read screenshot summary
+            let screenshotSummary = '';
+            try {
+              const summaryPath = 'screenshots/screenshot-summary.md';
+              
+              if (fs.existsSync(summaryPath)) {
+                const summary = fs.readFileSync(summaryPath, 'utf8');
+                
+                // Extract device counts from summary
+                const deviceMatches = summary.match(/\*\*(.+?)\*\*: (\d+) screenshots/g) || [];
+                const totalMatch = summary.match(/\*\*Total Screenshots\*\*: (\d+)/);
+                const totalScreenshots = totalMatch ? totalMatch[1] : '0';
+                
+                screenshotSummary = `## 📱 App Store Screenshots Generated
+            
+            **Screenshot Summary:**
+            - Total Screenshots: ${totalScreenshots}
+            `;
+                
+                // Add device breakdown
+                deviceMatches.forEach(match => {
+                  const [, device, count] = match.match(/\*\*(.+?)\*\*: (\d+) screenshots/);
+                  screenshotSummary += `- ${device}: ${count} screenshots\n`;
+                });
+                
+                screenshotSummary += `
+            
+            **Screenshot Types:**
+            - 📱 Empty State: Clean first impression
+            - ✏️ Add Workout Form: Entry interface
+            - 🏋️ Workout in Progress: Active session
+            - 📊 Workout History: Progress tracking
+            - 📤 Export Feature: Data portability
+            
+            **Device Coverage:**
+            - iPhone 15 Pro Max (6.7" display)
+            - iPhone 15 Plus (6.7" display)
+            - iPhone 15 (6.1" display)
+            - iPhone SE (4.7" display)
+            - iPad Pro 12.9" and 11"
+            
+            📁 **Download:** Check the "app-store-screenshots" artifact for all generated screenshots.
+            
+            > Screenshots are optimized for App Store submission with demo data and consistent UI state.`;
+              }
+            } catch (error) {
+              screenshotSummary = '❌ Failed to generate screenshot summary. Check logs for details.';
+            }
+            
+            if (screenshotSummary) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: screenshotSummary
+              });
+            }

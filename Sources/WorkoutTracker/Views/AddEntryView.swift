@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Temporary input model for capturing table sets
-private struct SetInput: Identifiable {
+struct SetInput: Identifiable {
     let id = UUID()
     var reps: String = ""
     var weight: String = ""

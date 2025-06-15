@@ -3,10 +3,21 @@ import Foundation
 /// Handles persistence of exercise entries to local storage
 class DataStore {
     private let fileName = "workout_entries.json"
+    private let fileManager: FileManager
+    private let baseDirectory: URL
+
+    init(fileManager: FileManager = .default, baseDirectory: URL? = nil) {
+        self.fileManager = fileManager
+        if let baseDirectory = baseDirectory {
+            self.baseDirectory = baseDirectory
+        } else {
+            let urls = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
+            self.baseDirectory = urls[0]
+        }
+    }
 
     private var fileURL: URL {
-        let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        return urls[0].appendingPathComponent(fileName)
+        baseDirectory.appendingPathComponent(fileName)
     }
 
     /// Loads saved entries from disk, or returns an empty list

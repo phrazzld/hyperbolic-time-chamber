@@ -1,0 +1,40 @@
+{
+  "environment": "local",
+  "description": "Configuration for local development test execution",
+  "datasets": {
+    "small": 100,
+    "medium": 500,
+    "large": 1000,
+    "extraLarge": 5000,
+    "stress": 10000
+  },
+  "timeouts": {
+    "default": 10.0,
+    "longOperation": 60.0,
+    "ui": 5.0,
+    "performance": 120.0,
+    "warningThreshold": 180.0
+  },
+  "performance": {
+    "measureIterations": 10,
+    "runStressTests": true,
+    "useInMemoryStorage": false
+  },
+  "parallelization": {
+    "maxWorkers": 0,
+    "useParallel": true
+  },
+  "memory": {
+    "warningThresholdMB": 1024,
+    "enableProfiling": true
+  },
+  "monitoring": {
+    "enableTestMonitoring": true,
+    "enableProgressLogging": false,
+    "slowTestThreshold": 5.0,
+    "verySlowTestThreshold": 10.0,
+    "progressReportingInterval": 60.0,
+    "enableStructuredOutput": false,
+    "maxSlowTestsToReport": 20
+  }
+}

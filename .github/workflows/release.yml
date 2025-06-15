@@ -1,0 +1,243 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        type: string
+      deploy_testflight:
+        description: 'Deploy to TestFlight'
+        required: false
+        type: boolean
+        default: true
+      generate_screenshots:
+        description: 'Generate App Store screenshots'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release-notes:
+    name: Generate Release Notes
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract-version.outputs.version }}
+      release-notes: ${{ steps.generate-notes.outputs.release-notes }}
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Extract version from tag or input
+      id: extract-version
+      run: |
+        if [ "${{ github.event_name }}" = "push" ]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION="${{ github.event.inputs.version }}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+    
+    - name: Generate Release Notes
+      id: generate-notes
+      run: |
+        python3 scripts/generate-release-notes.py \
+          --version "${{ steps.extract-version.outputs.version }}" \
+          --github-format \
+          --output release-notes.md
+        
+        # Prepare release notes for GitHub
+        echo 'release-notes<<EOF' >> $GITHUB_OUTPUT
+        cat release-notes.md >> $GITHUB_OUTPUT
+        echo 'EOF' >> $GITHUB_OUTPUT
+    
+    - name: Upload Release Notes
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-notes
+        path: |
+          release-notes.md
+          release-notes/release-summary.json
+        retention-days: 90
+
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: release-notes
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download Release Notes
+      uses: actions/download-artifact@v3
+      with:
+        name: release-notes
+    
+    - name: Create GitHub Release
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read release notes
+          const releaseNotes = fs.readFileSync('release-notes.md', 'utf8');
+          
+          // Create release
+          const { data: release } = await github.rest.repos.createRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag_name: 'v${{ needs.release-notes.outputs.version }}',
+            name: 'Release v${{ needs.release-notes.outputs.version }}',
+            body: releaseNotes,
+            draft: false,
+            prerelease: ${{ contains(needs.release-notes.outputs.version, '-') }}
+          });
+          
+          console.log(`Release created: ${release.html_url}`);
+
+  deploy-testflight:
+    name: Deploy to TestFlight
+    runs-on: macos-latest
+    needs: [release-notes, github-release]
+    if: |
+      (github.event_name == 'push') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_testflight == 'true')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.1'
+        bundler-cache: true
+        working-directory: fastlane
+    
+    - name: Download Release Notes
+      uses: actions/download-artifact@v3
+      with:
+        name: release-notes
+    
+    - name: Deploy to TestFlight
+      run: |
+        cd fastlane
+        bundle exec fastlane beta
+      env:
+        APP_STORE_CONNECT_API_KEY_PATH: ${{ secrets.APP_STORE_CONNECT_API_KEY_PATH }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+        MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+        MATCH_KEYCHAIN_NAME: ${{ secrets.MATCH_KEYCHAIN_NAME }}
+        MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+        DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+        DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+
+  generate-screenshots:
+    name: Generate App Store Screenshots
+    runs-on: macos-latest
+    needs: [release-notes]
+    if: |
+      (github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.generate_screenshots == 'true')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.1'
+        bundler-cache: true
+        working-directory: fastlane
+    
+    - name: Generate Screenshots
+      run: |
+        cd fastlane
+        bundle exec fastlane screenshots
+      env:
+        FASTLANE_SKIP_UPDATE_CHECK: true
+        FASTLANE_DISABLE_ANIMATION: true
+        FASTLANE_EXPLICIT_OPEN_SIMULATOR: 2
+    
+    - name: Upload Screenshots to Release
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Find the release
+          const releases = await github.rest.repos.listReleases({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+          
+          const tagName = 'v${{ needs.release-notes.outputs.version }}';
+          const release = releases.data.find(r => r.tag_name === tagName);
+          
+          if (!release) {
+            console.log('Release not found, skipping screenshot upload');
+            return;
+          }
+          
+          // Create screenshots archive
+          const { execSync } = require('child_process');
+          execSync('cd screenshots && zip -r ../screenshots-v${{ needs.release-notes.outputs.version }}.zip .');
+          
+          // Upload archive as release asset
+          const assetPath = path.resolve('screenshots-v${{ needs.release-notes.outputs.version }}.zip');
+          const assetName = 'app-store-screenshots-v${{ needs.release-notes.outputs.version }}.zip';
+          
+          await github.rest.repos.uploadReleaseAsset({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: release.id,
+            name: assetName,
+            data: fs.readFileSync(assetPath),
+          });
+          
+          console.log(`Screenshots uploaded to release: ${assetName}`);
+    
+    - name: Upload Screenshots Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-store-screenshots-v${{ needs.release-notes.outputs.version }}
+        path: screenshots/
+        retention-days: 180
+
+  notify-completion:
+    name: Notify Release Completion
+    runs-on: ubuntu-latest
+    needs: [release-notes, github-release, deploy-testflight, generate-screenshots]
+    if: always()
+    
+    steps:
+    - name: Release Summary
+      run: |
+        echo "🎉 Release v${{ needs.release-notes.outputs.version }} completed!"
+        echo ""
+        echo "✅ Components completed:"
+        echo "  • Release Notes: ${{ needs.release-notes.result }}"
+        echo "  • GitHub Release: ${{ needs.github-release.result }}"
+        echo "  • TestFlight Deploy: ${{ needs.deploy-testflight.result }}"
+        echo "  • App Store Screenshots: ${{ needs.generate-screenshots.result }}"
+        echo ""
+        echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.release-notes.outputs.version }}"

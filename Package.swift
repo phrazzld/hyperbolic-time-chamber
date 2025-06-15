@@ -10,13 +10,59 @@ let package = Package(
     products: [
         .executable(name: "WorkoutTracker", targets: ["WorkoutTracker"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.15.0")
+    ],
     targets: [
         .executableTarget(
             name: "WorkoutTracker",
             dependencies: [],
             path: "Sources/WorkoutTracker",
-            // The app’s Info.plist is provided via the INFOPLIST_FILE build setting in Xcode or CLI (see README)
+            exclude: ["Info.plist"]
+        ),
+        .target(
+            name: "TestConfiguration",
+            dependencies: ["WorkoutTracker"],
+            path: "Tests/TestConfiguration",
+            exclude: [
+                "README.md",
+                "TestCategorization.swift.disabled",
+                "TestExecutionMonitor.swift.disabled"
+            ],
+            resources: [
+                .process("ci-config.json"),
+                .process("local-config.json")
+            ]
+        ),
+        .testTarget(
+            name: "WorkoutTrackerTests",
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
+            path: "Tests/WorkoutTrackerTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerIntegrationTests",
+            dependencies: [
+                "WorkoutTracker",
+                "TestConfiguration",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ],
+            path: "Tests/WorkoutTrackerIntegrationTests",
+            exclude: ["LegacyPerformanceTests.swift.disabled"]
+        ),
+        .testTarget(
+            name: "WorkoutTrackerPerformanceTests",
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
+            path: "Tests/WorkoutTrackerPerformanceTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerComprehensiveTests",
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
+            path: "Tests/WorkoutTrackerComprehensiveTests"
+        ),
+        .testTarget(
+            name: "WorkoutTrackerStressTests",
+            dependencies: ["WorkoutTracker", "TestConfiguration"],
+            path: "Tests/WorkoutTrackerStressTests"
         )
     ]
 )

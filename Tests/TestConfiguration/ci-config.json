@@ -1,0 +1,40 @@
+{
+  "environment": "ci",
+  "description": "Configuration for CI test execution",
+  "datasets": {
+    "small": 20,
+    "medium": 30,
+    "large": 50,
+    "extraLarge": 50,
+    "stress": 50
+  },
+  "timeouts": {
+    "default": 5.0,
+    "longOperation": 30.0,
+    "ui": 3.0,
+    "performance": 60.0,
+    "warningThreshold": 90.0
+  },
+  "performance": {
+    "measureIterations": 3,
+    "runStressTests": false,
+    "useInMemoryStorage": true
+  },
+  "parallelization": {
+    "maxWorkers": 2,
+    "useParallel": false
+  },
+  "memory": {
+    "warningThresholdMB": 512,
+    "enableProfiling": false
+  },
+  "monitoring": {
+    "enableTestMonitoring": true,
+    "enableProgressLogging": true,
+    "slowTestThreshold": 2.0,
+    "verySlowTestThreshold": 5.0,
+    "progressReportingInterval": 30.0,
+    "enableStructuredOutput": true,
+    "maxSlowTestsToReport": 10
+  }
+}

@@ -1,0 +1,267 @@
+import Foundation
+import XCTest
+
+/// Utilities for test categorization and discovery based on execution time
+public struct TestCategorization {
+
+    /// Discover tests by their execution time category
+    public static func discoverTests(byExecutionTimeCategory category: ExecutionTimeCategory) -> [String] {
+        _ = TestConfiguration.shared
+        _ = TestExecutionMonitor.shared
+
+        // This would typically integrate with test discovery mechanisms
+        // For now, we provide the framework for categorization
+        return []
+    }
+
+    /// Categorize a test class by its expected performance
+    public static func categorize(_ testClass: AnyClass) -> ExecutionTimeCategory {
+        switch testClass {
+        case is FastTestCase.Type: return .fast
+        case is MediumTestCase.Type: return .medium
+        case is SlowTestCase.Type: return .slow
+        case is VerySlowTestCase.Type: return .verySlow
+        case is UnitTestCase.Type: return .fast
+        case is IntegrationTestCase.Type: return .medium
+        case is PerformanceTestCase.Type: return .slow
+        case is StressTestCase.Type: return .verySlow
+        default: return .fast // Default to fast for unknown test types
+        }
+    }
+
+    /// Generate test execution recommendations for CI
+    public static func generateCIRecommendations(tests: [TestExecutionMonitor.TestExecution]) -> CIRecommendations {
+        let config = TestConfiguration.shared
+
+        let fastTests = tests.filter { $0.executionTimeCategory == .fast }
+        let mediumTests = tests.filter { $0.executionTimeCategory == .medium }
+        let slowTests = tests.filter { $0.executionTimeCategory == .slow }
+        let verySlowTests = tests.filter { $0.executionTimeCategory == .verySlow }
+
+        let mismatchedTests = tests.filter { !$0.isAppropriateForCategory }
+
+        return CIRecommendations(
+            totalTests: tests.count,
+            fastTests: fastTests.count,
+            mediumTests: mediumTests.count,
+            slowTests: slowTests.count,
+            verySlowTests: verySlowTests.count,
+            mismatchedTests: mismatchedTests.count,
+            recommendations: generateRecommendationsList(
+                fast: fastTests.count,
+                medium: mediumTests.count,
+                slow: slowTests.count,
+                verySlow: verySlowTests.count,
+                mismatched: mismatchedTests.count,
+                total: tests.count,
+                isCI: config.isCI
+            )
+        )
+    }
+
+    /// Filter tests by execution time category for selective running
+    public static func filterTests(
+        _ tests: [TestExecutionMonitor.TestExecution],
+        byCategory categories: [ExecutionTimeCategory]
+    ) -> [TestExecutionMonitor.TestExecution] {
+        tests.filter { test in
+            categories.contains(test.executionTimeCategory)
+        }
+    }
+
+    /// Get optimal test execution strategy for environment
+    public static func getOptimalExecutionStrategy() -> TestExecutionStrategy {
+        let config = TestConfiguration.shared
+
+        if config.isCI {
+            return TestExecutionStrategy(
+                includedCategories: [.fast, .medium],
+                excludedCategories: [.slow, .verySlow],
+                maxTotalTime: 180.0, // 3 minutes
+                parallelExecution: false,
+                priority: .speed
+            )
+        } else {
+            return TestExecutionStrategy(
+                includedCategories: [.fast, .medium, .slow, .verySlow],
+                excludedCategories: [],
+                maxTotalTime: 1800.0, // 30 minutes
+                parallelExecution: true,
+                priority: .coverage
+            )
+        }
+    }
+
+    // MARK: - Private Implementation
+
+    private static func generateRecommendationsList(
+        fast: Int,
+        medium: Int,
+        slow: Int,
+        verySlow: Int,
+        mismatched: Int,
+        total: Int,
+        isCI: Bool
+    ) -> [String] {
+        var recommendations: [String] = []
+
+        let fastPercentage = total > 0 ? Double(fast) / Double(total) * 100 : 0
+
+        let formattedPercentage = String(format: "%.1f", fastPercentage)
+        if fastPercentage < 50 {
+            recommendations.append("Increase fast test coverage to > 50% (currently \(formattedPercentage)%)")
+        }
+
+        if isCI && verySlow > 0 {
+            recommendations.append("Move \(verySlow) very slow tests to nightly CI or local-only execution")
+        }
+
+        if isCI && slow > total / 2 {
+            recommendations.append("Consider reducing slow test count in CI (\(slow) tests)")
+        }
+
+        if mismatched > 0 {
+            recommendations.append("Review \(mismatched) tests with mismatched performance categories")
+        }
+
+        if total > 100 && fastPercentage < 70 {
+            recommendations.append("For large test suites, aim for 70%+ fast tests to optimize CI performance")
+        }
+
+        return recommendations
+    }
+}
+
+/// CI-specific recommendations for test execution optimization
+public struct CIRecommendations {
+    public let totalTests: Int
+    public let fastTests: Int
+    public let mediumTests: Int
+    public let slowTests: Int
+    public let verySlowTests: Int
+    public let mismatchedTests: Int
+    public let recommendations: [String]
+
+    /// Summary of test distribution
+    public var distributionSummary: String {
+        let fast = fastTests > 0 ? "Fast: \(fastTests)" : nil
+        let medium = mediumTests > 0 ? "Medium: \(mediumTests)" : nil
+        let slow = slowTests > 0 ? "Slow: \(slowTests)" : nil
+        let verySlow = verySlowTests > 0 ? "Very Slow: \(verySlowTests)" : nil
+
+        let components = [fast, medium, slow, verySlow].compactMap { $0 }
+        return components.joined(separator: ", ")
+    }
+
+    /// Overall CI suitability score (0-100)
+    public var ciSuitabilityScore: Int {
+        guard totalTests > 0 else { return 100 }
+
+        let fastWeight = Double(fastTests) * 1.0
+        let mediumWeight = Double(mediumTests) * 0.8
+        let slowWeight = Double(slowTests) * 0.4
+        let verySlowWeight = Double(verySlowTests) * 0.1
+
+        let totalWeight = fastWeight + mediumWeight + slowWeight + verySlowWeight
+        let maxWeight = Double(totalTests) * 1.0
+
+        let baseScore = (totalWeight / maxWeight) * 100
+
+        // Penalty for mismatched tests
+        let mismatchPenalty = Double(mismatchedTests) / Double(totalTests) * 20
+
+        return max(0, min(100, Int(baseScore - mismatchPenalty)))
+    }
+}
+
+/// Test execution strategy for different environments
+public struct TestExecutionStrategy {
+    public let includedCategories: [ExecutionTimeCategory]
+    public let excludedCategories: [ExecutionTimeCategory]
+    public let maxTotalTime: TimeInterval
+    public let parallelExecution: Bool
+    public let priority: ExecutionPriority
+
+    public enum ExecutionPriority {
+        case speed      // Prioritize fast execution
+        case coverage   // Prioritize test coverage
+        case stability  // Prioritize test stability
+    }
+}
+
+/// Test categorization metadata
+public struct TestCategoryMetadata {
+    public let testName: String
+    public let testClass: String
+    public let expectedCategory: TestCategory
+    public let expectedTimeCategory: ExecutionTimeCategory
+    public let actualTimeCategory: ExecutionTimeCategory?
+    public let lastDuration: TimeInterval?
+    public let averageDuration: TimeInterval?
+    public let isAppropriate: Bool
+
+    public var needsRecategorization: Bool {
+        guard actualTimeCategory != nil else { return false }
+        return !isAppropriate
+    }
+
+    public var performanceGrade: String {
+        guard let actual = actualTimeCategory else { return "Unknown" }
+
+        if isAppropriate {
+            switch actual {
+            case .fast: return "A (Excellent)"
+            case .medium: return "B (Good)"
+            case .slow: return "C (Acceptable)"
+            case .verySlow: return "D (Poor)"
+            }
+        } else {
+            return "F (Mismatched)"
+        }
+    }
+}
+
+// MARK: - Test Discovery Extensions
+
+public extension XCTestCase {
+    /// Get the execution time category for this test class
+    var executionTimeCategory: ExecutionTimeCategory {
+        TestCategorization.categorize(type(of: self))
+    }
+
+    /// Check if this test should run in current environment
+    var shouldRunInCurrentEnvironment: Bool {
+        TestConfiguration.shared.shouldRun(executionTimeCategory)
+    }
+}
+
+// MARK: - Test Suite Extensions  
+
+public extension XCTestSuite {
+    /// Get estimated execution time for the suite based on test categories
+    var estimatedExecutionTime: TimeInterval {
+        let config = TestConfiguration.shared
+        var totalTime: TimeInterval = 0
+
+        for test in tests {
+            if let testCase = test as? XCTestCase {
+                let category = testCase.executionTimeCategory
+                let estimatedTime = config.maxExecutionTime(for: category) * 0.5 // Conservative estimate
+                totalTime += estimatedTime
+            }
+        }
+
+        return totalTime
+    }
+
+    /// Get test distribution by execution time category
+    var executionTimeDistribution: [ExecutionTimeCategory: Int] {
+        let categories: [ExecutionTimeCategory] = [.fast, .medium, .slow, .verySlow]
+        return Dictionary(uniqueKeysWithValues: categories.map { category in
+            let count = tests.compactMap { $0 as? XCTestCase }
+                .filter { $0.executionTimeCategory == category }
+                .count
+            return (category, count)
+        })
+    }
+}
