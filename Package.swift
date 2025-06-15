@@ -17,13 +17,18 @@ let package = Package(
         .executableTarget(
             name: "WorkoutTracker",
             dependencies: [],
-            path: "Sources/WorkoutTracker"
+            path: "Sources/WorkoutTracker",
+            exclude: ["Info.plist"]
         ),
         .target(
             name: "TestConfiguration",
             dependencies: ["WorkoutTracker"],
             path: "Tests/TestConfiguration",
-            exclude: ["README.md"],
+            exclude: [
+                "README.md",
+                "TestCategorization.swift.disabled",
+                "TestExecutionMonitor.swift.disabled"
+            ],
             resources: [
                 .process("ci-config.json"),
                 .process("local-config.json")
@@ -41,7 +46,8 @@ let package = Package(
                 "TestConfiguration",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ],
-            path: "Tests/WorkoutTrackerIntegrationTests"
+            path: "Tests/WorkoutTrackerIntegrationTests",
+            exclude: ["LegacyPerformanceTests.swift.disabled"]
         ),
         .testTarget(
             name: "WorkoutTrackerPerformanceTests",
