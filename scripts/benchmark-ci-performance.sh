@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 BENCHMARK_VERSION="1.0"
-BENCHMARKS_DIR=".benchmarks"
+BENCHMARKS_DIR="${BENCHMARKS_DIR:-.benchmarks}"
 BASELINE_FILE="$BENCHMARKS_DIR/baselines.json"
 RESULTS_FILE="$BENCHMARKS_DIR/latest-results.json"
 HISTORY_FILE="$BENCHMARKS_DIR/performance-history.jsonl"
