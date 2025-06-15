@@ -153,3 +153,6 @@ Tests/**/SnapshotHelper.swift
 
 # CI performance benchmarks (dynamic performance data)
 .benchmarks/
+
+# Test results and validation artifacts
+.test-results/
