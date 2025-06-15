@@ -71,11 +71,11 @@ done
 
 echo
 echo -e "${BLUE}🔍 What these hooks do:${NC}"
-echo "  - pre-commit: Validates Package.swift syntax, runs SwiftLint and compilation checks"
+echo "  - pre-commit: Validates Package.swift syntax, runs SwiftLint, compilation, and release build checks"
 echo "  - pre-push: Runs all unit tests before pushing to remote repositories"
-echo "  - Prevents broken Package.swift, code style violations and compilation errors"
-echo "  - Blocks pushes that would break existing functionality"
-echo "  - Helps maintain consistent code quality and dependency management"
+echo "  - Prevents broken Package.swift, @testable import issues, code style violations and compilation errors"
+echo "  - Blocks pushes that would break existing functionality or release builds"
+echo "  - Helps maintain consistent code quality, dependency management, and cross-configuration compatibility"
 echo
 echo -e "${YELLOW}💡 Tips:${NC}"
 echo "  - Hooks run automatically on git commit and git push"

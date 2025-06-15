@@ -153,6 +153,229 @@ swift package resolve
 
 The quality gates prevent broken Package.swift files, code style violations, and compilation errors from entering the repository, ensuring consistent code quality and reliable dependency management across all contributors.
 
+## Testing Guidelines & @testable Import Best Practices
+
+### Release Build Compatibility
+
+**Critical Rule**: Test modules that must support release builds (like `TestConfiguration`) should NEVER use `@testable import`.
+
+#### Why @testable Import Fails in Release Builds
+- **Compilation Context**: `@testable import` requires modules to be compiled with testing symbols
+- **Release Optimization**: Release builds strip testing symbols for performance and security
+- **CI Validation**: All validation workflows test both debug AND release configurations
+- **Production Readiness**: Release builds must work without test-specific modifications
+
+#### Test Configuration Module Pattern
+
+**✅ Correct Pattern: Public API with Regular Import**
+```swift
+// In Sources/WorkoutTracker/Models/ExerciseEntry.swift
+public struct ExerciseEntry: Identifiable, Codable {
+    public var id = UUID()
+    public var exerciseName: String
+    public var date: Date
+    public var sets: [ExerciseSet]
+    
+    public init(exerciseName: String, date: Date, sets: [ExerciseSet]) {
+        self.exerciseName = exerciseName
+        self.date = date
+        self.sets = sets
+    }
+}
+
+// In Tests/TestConfiguration/WorkoutTestDataFactory.swift
+import Foundation
+import WorkoutTracker  // ✅ Regular import
+
+public struct WorkoutTestDataFactory {
+    public static func createBasicEntry() -> ExerciseEntry {
+        ExerciseEntry(exerciseName: "Test", date: Date(), sets: [])
+    }
+}
+```
+
+**❌ Incorrect Pattern: @testable Import**
+```swift
+// In Tests/TestConfiguration/WorkoutTestDataFactory.swift
+import Foundation
+@testable import WorkoutTracker  // ❌ Fails in release builds
+
+public struct WorkoutTestDataFactory {
+    public static func createBasicEntry() -> ExerciseEntry {
+        // This works in debug but FAILS in release builds
+        ExerciseEntry(exerciseName: "Test", date: Date(), sets: [])
+    }
+}
+```
+
+### Public API Design Guidelines
+
+#### When to Make Types Public
+
+**Make types public when they are:**
+1. **Used by test configuration modules** that support release builds
+2. **Part of the core domain model** that other modules need to access
+3. **Essential for cross-module testing** patterns
+
+**Keep types internal when they are:**
+1. **Implementation details** not needed outside the module
+2. **Only used within unit tests** in the same module
+3. **Internal utilities** that don't need external access
+
+#### Public API Best Practices
+
+```swift
+// ✅ Complete public interface for test access
+public struct ExerciseSet: Identifiable, Codable {
+    public var id = UUID()
+    public var reps: Int
+    public var weight: Double?
+    public var notes: String?
+
+    // ✅ Public initializer for test data creation
+    public init(reps: Int, weight: Double? = nil, notes: String? = nil) {
+        self.reps = reps
+        self.weight = weight
+        self.notes = notes
+    }
+}
+```
+
+### Testing Architecture Patterns
+
+#### Test Configuration Modules
+
+**Purpose**: Centralized test data factories that work across all build configurations
+
+**Structure**:
+- `Tests/TestConfiguration/` - Shared test utilities
+- Uses regular `import` statements only
+- Provides public APIs for test data creation
+- Works in both debug and release builds
+
+#### Test Data Factory Pattern
+
+```swift
+public struct WorkoutTestDataFactory {
+    // Environment-aware test data sizing
+    public static func createLargeDataset(count: Int) -> [ExerciseEntry] {
+        let adjustedCount = TestConfiguration.shared.isCI ? min(count, 50) : count
+        return (0..<adjustedCount).map { index in
+            ExerciseEntry(
+                exerciseName: "Exercise \(index)",
+                date: Date().addingTimeInterval(-Double(index) * 3600),
+                sets: [ExerciseSet(reps: 10, weight: 50.0)]
+            )
+        }
+    }
+    
+    // CI-optimized exercise names
+    public static func getEnvironmentExerciseNames() -> [String] {
+        TestConfiguration.shared.isCI ? ciExerciseNames : fullExerciseNames
+    }
+}
+```
+
+### Common Anti-Patterns to Avoid
+
+#### 1. @testable Import in Cross-Module Tests
+```swift
+// ❌ DON'T: This breaks release builds
+@testable import WorkoutTracker
+```
+
+#### 2. Missing Public Initializers
+```swift
+// ❌ DON'T: Internal initializer prevents test access
+internal init(exerciseName: String, date: Date, sets: [ExerciseSet]) { ... }
+
+// ✅ DO: Public initializer enables test data creation
+public init(exerciseName: String, date: Date, sets: [ExerciseSet]) { ... }
+```
+
+#### 3. Inconsistent Access Levels
+```swift
+// ❌ DON'T: Mix of public and internal properties
+public struct ExerciseEntry {
+    public var id = UUID()
+    var exerciseName: String      // ❌ Internal property
+    public var date: Date
+}
+
+// ✅ DO: Consistent public access for test compatibility
+public struct ExerciseEntry {
+    public var id = UUID()
+    public var exerciseName: String
+    public var date: Date
+}
+```
+
+### Quality Gates for Release Build Compatibility
+
+#### Pre-commit Hook Validation
+The enhanced pre-commit hook automatically detects and prevents @testable import issues:
+
+1. **Intelligent Detection**: Validates release builds when test modules or Package.swift change
+2. **Actionable Guidance**: Provides specific steps to fix @testable import issues
+3. **Performance Optimized**: Only runs validation when necessary
+
+#### Manual Release Build Testing
+```bash
+# Test release build compatibility locally
+swift build -c release
+
+# Test release configuration with full test suite
+swift test -c release
+
+# Validate specific test module compatibility
+swift build -c release && swift test --filter TestConfiguration
+```
+
+### Migration from @testable Import
+
+#### Step-by-Step Migration Process
+
+1. **Identify Dependencies**: Find what internal APIs the test module needs
+   ```bash
+   grep -r "WorkoutTracker\." Tests/TestConfiguration/
+   ```
+
+2. **Make Types Public**: Add public access to required types and initializers
+   ```swift
+   public struct ExerciseEntry: Identifiable, Codable {
+       public init(...) { ... }
+   }
+   ```
+
+3. **Replace @testable Import**: Change to regular import
+   ```swift
+   - @testable import WorkoutTracker
+   + import WorkoutTracker
+   ```
+
+4. **Validate Release Build**: Test that release builds work
+   ```bash
+   swift build -c release && swift test -c release
+   ```
+
+#### Verification Checklist
+
+- [ ] All test configuration modules use regular `import` statements
+- [ ] Required types have public access modifiers
+- [ ] Public initializers are available for test data creation
+- [ ] Release builds compile without errors
+- [ ] All tests pass in both debug and release configurations
+- [ ] Pre-commit hooks validate release build compatibility
+
+### Best Practices Summary
+
+1. **Never use @testable import** in test configuration modules
+2. **Design public APIs thoughtfully** for test access
+3. **Test both debug and release** configurations regularly
+4. **Use environment-aware test data** for CI optimization
+5. **Validate changes** with release build testing
+6. **Leverage pre-commit hooks** for early detection of issues
+
 ## CI Troubleshooting Guide
 
 ### Common CI Timeout Issues
