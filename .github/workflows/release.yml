@@ -59,7 +59,7 @@ jobs:
         echo 'EOF' >> $GITHUB_OUTPUT
     
     - name: Upload Release Notes
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: release-notes
         path: |
@@ -217,7 +217,7 @@ jobs:
           console.log(`Screenshots uploaded to release: ${assetName}`);
     
     - name: Upload Screenshots Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: app-store-screenshots-v${{ needs.release-notes.outputs.version }}
         path: screenshots/
