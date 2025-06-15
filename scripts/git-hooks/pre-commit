@@ -116,7 +116,6 @@ done
 
 if [ -z "$COMPILATION_ERRORS" ]; then
     echo -e "${GREEN}✅ All staged Swift files compile successfully!${NC}"
-    exit 0
 else
     echo -e "${RED}❌ Compilation errors found in staged files:${NC}"
     echo -e "$COMPILATION_ERRORS"
@@ -128,3 +127,44 @@ else
     echo
     exit 1
 fi
+
+# Validate release build compatibility for critical modules
+echo "🏗️ Validating release build compatibility..."
+
+# Check if staged files include TestConfiguration or critical modules that could affect release builds
+CRITICAL_MODULES=$(echo "$STAGED_SWIFT_FILES" | grep -E "(Tests/TestConfiguration/|Tests/.*\.swift)" || true)
+PACKAGE_SWIFT_CHANGED=$(echo "$STAGED_PACKAGE_SWIFT" | grep -E "Package\.swift" || true)
+
+if [ -n "$CRITICAL_MODULES" ] || [ -n "$PACKAGE_SWIFT_CHANGED" ]; then
+    echo "🔍 Detected changes to test modules or Package.swift - validating release build..."
+    
+    # Run a quick release build check to catch @testable import and configuration issues
+    RELEASE_BUILD_OUTPUT=$(swift build -c release --quiet 2>&1)
+    RELEASE_BUILD_EXIT_CODE=$?
+    
+    if [ $RELEASE_BUILD_EXIT_CODE -ne 0 ]; then
+        echo -e "${RED}❌ Release build validation failed:${NC}"
+        echo
+        echo "$RELEASE_BUILD_OUTPUT"
+        echo
+        echo -e "${YELLOW}💡 Common release build issues and fixes:${NC}"
+        echo "   - @testable import usage: Replace with regular import and make APIs public"
+        echo "   - Invalid Package.swift resources: Remove forbidden Info.plist resource declarations"
+        echo "   - Missing public access: Add public modifiers to types used by test modules"
+        echo "   - SPM configuration errors: Validate Package.swift target configurations"
+        echo
+        echo -e "${YELLOW}🔧 To fix @testable import issues:${NC}"
+        echo "   1. Make required types public in the main module"
+        echo "   2. Replace @testable import with regular import in test files"
+        echo "   3. Test locally: swift build -c release"
+        echo "   4. Stage your fixes and commit again"
+        echo
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Release build validation passed!${NC}"
+else
+    echo "ℹ️ No critical module changes detected - skipping release build validation"
+fi
+
+echo -e "${GREEN}🎉 All pre-commit checks passed!${NC}"
