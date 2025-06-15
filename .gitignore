@@ -156,3 +156,7 @@ Tests/**/SnapshotHelper.swift
 
 # Test results and validation artifacts
 .test-results/
+
+thinktank_*/
+**/glance.md
+REVIEW-CONTEXT.md
