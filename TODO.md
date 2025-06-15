@@ -11,17 +11,19 @@
   - impact: blocks all PR validation workflows (iOS 17, iOS 18, current iOS)
   - approach: Make necessary testing utilities public and use regular import
 
-- [ ] **Identify TestConfiguration internal API dependencies** - Analyze what WorkoutTracker internal APIs are required by test data factory
+- [x] **Identify TestConfiguration internal API dependencies** - Analyze what WorkoutTracker internal APIs are required by test data factory
   - depends-on: Fix @testable import in TestConfiguration module
   - estimated: 10 minutes
   - validation: grep -r "WorkoutTracker\." Tests/TestConfiguration/ to find usage patterns
   - scope: Determine minimal public API surface needed for testing
+  - result: ✅ ZERO internal API dependencies found - only public ExerciseEntry/ExerciseSet constructors used
 
-- [ ] **Expose public testing utilities in WorkoutTracker** - Create public testing helpers to replace @testable import functionality
+- [x] **Expose public testing utilities in WorkoutTracker** - Create public testing helpers to replace @testable import functionality
   - depends-on: Identify TestConfiguration internal API dependencies
   - estimated: 15 minutes
   - scope: Add public extensions or factory methods for test data creation
   - location: Sources/WorkoutTracker/ module files
+  - result: ✅ COMPLETED in previous task - ExerciseEntry and ExerciseSet made public with necessary constructors
 
 - [ ] **Validate release build compatibility** - Test that all CI configurations build successfully with the fix
   - depends-on: Expose public testing utilities in WorkoutTracker
