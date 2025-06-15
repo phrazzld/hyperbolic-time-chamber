@@ -1,5 +1,5 @@
 import Foundation
-@testable import WorkoutTracker
+import WorkoutTracker
 
 /// Centralized factory for creating consistent test data across all test targets
 /// Reduces code duplication and ensures standardized test data patterns

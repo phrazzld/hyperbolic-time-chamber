@@ -11,22 +11,22 @@ import Foundation
 /// let bodyweightSet = ExerciseSet(reps: 15, weight: nil, notes: "Good form")
 /// let weightedSet = ExerciseSet(reps: 8, weight: 185.0, notes: "Felt heavy")
 /// ```
-struct ExerciseSet: Identifiable, Codable {
+public struct ExerciseSet: Identifiable, Codable {
     /// Unique identifier for this set instance
-    var id = UUID()
+    public var id = UUID()
 
     /// Number of repetitions performed in this set
     ///
     /// Represents the count of exercise repetitions completed, such as 10 push-ups
     /// or 5 pull-ups. Always a positive integer.
-    var reps: Int
+    public var reps: Int
 
     /// Optional weight used for this set, measured in pounds
     ///
     /// For bodyweight exercises, this value is `nil`. For weighted exercises,
     /// this represents the total weight used (including the weight of bars,
     /// dumbbells, or added resistance).
-    var weight: Double?
+    public var weight: Double?
 
     /// Optional notes about this specific set
     ///
@@ -35,5 +35,12 @@ struct ExerciseSet: Identifiable, Codable {
     /// - Difficulty ratings ("felt easy", "very challenging") 
     /// - Equipment notes ("used resistance band", "tempo work")
     /// - Personal reminders for next workout
-    var notes: String?
+    public var notes: String?
+
+    /// Public initializer for creating exercise sets
+    public init(reps: Int, weight: Double? = nil, notes: String? = nil) {
+        self.reps = reps
+        self.weight = weight
+        self.notes = notes
+    }
 }
