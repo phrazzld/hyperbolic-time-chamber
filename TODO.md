@@ -229,7 +229,7 @@
 
 ## Quality Gates & Verification
 
-- [ ] **QG001 · Quality Gate**: Audit current test coverage before refactoring
+- [x] **QG001 · Quality Gate**: Audit current test coverage before refactoring
     - **Context:** Ensure existing functionality is protected during refactoring
     - **Action:**
         1. Generate test coverage report for DataStore and WorkoutViewModel
@@ -241,7 +241,7 @@
         3. Test suite passes reliably in CI
     - **Depends‑on:** none
 
-- [ ] **QG002 · Quality Gate**: Verify no breaking changes to existing functionality
+- [x] **QG002 · Quality Gate**: Verify no breaking changes to existing functionality
     - **Context:** Ensure refactoring maintains backward compatibility
     - **Action:**
         1. Run complete test suite after each major change
@@ -253,7 +253,7 @@
         3. No regression in app functionality
     - **Depends‑on:** [T009]
 
-- [ ] **QG003 · Quality Gate**: Measure and verify test performance improvement
+- [x] **QG003 · Quality Gate**: Measure and verify test performance improvement
     - **Context:** Confirm DI implementation delivers promised benefits
     - **Action:**
         1. Measure test execution time before and after InMemoryDataStore migration
