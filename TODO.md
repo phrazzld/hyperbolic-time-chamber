@@ -12,7 +12,7 @@
         2. Protocol defines clean contract for data persistence operations
     - **Depends‑on:** none
 
-- [ ] **T002 · Refactor · P0**: Update access modifiers for domain models
+- [x] **T002 · Refactor · P0**: Update access modifiers for domain models
     - **Context:** Enable external module access to domain types
     - **Action:**
         1. Make `ExerciseEntry` and `ExerciseSet` structs public
