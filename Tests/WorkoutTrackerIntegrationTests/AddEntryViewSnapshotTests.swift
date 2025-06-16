@@ -15,7 +15,9 @@ final class AddEntryViewSnapshotTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        viewModel = WorkoutViewModel()
+        // Use InMemoryDataStore for tests to avoid file system interactions
+        let dataStore = InMemoryDataStore()
+        viewModel = WorkoutViewModel(dataStore: dataStore)
         isPresented = true
     }
 

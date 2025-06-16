@@ -1,12 +1,12 @@
 import Foundation
 
 /// Handles persistence of exercise entries to local storage
-class DataStore {
+public class DataStore: DataStoreProtocol {
     private let fileName = "workout_entries.json"
     private let fileManager: FileManager
     private let baseDirectory: URL
 
-    init(fileManager: FileManager = .default, baseDirectory: URL? = nil) {
+    public init(fileManager: FileManager = .default, baseDirectory: URL? = nil) {
         self.fileManager = fileManager
         if let baseDirectory = baseDirectory {
             self.baseDirectory = baseDirectory
@@ -21,7 +21,7 @@ class DataStore {
     }
 
     /// Loads saved entries from disk, or returns an empty list
-    func load() -> [ExerciseEntry] {
+    public func load() -> [ExerciseEntry] {
         guard let data = try? Data(contentsOf: fileURL) else {
             return []
         }
@@ -31,16 +31,16 @@ class DataStore {
     }
 
     /// Saves entries to disk in JSON format
-    func save(entries: [ExerciseEntry]) {
+    public func save(entries: [ExerciseEntry]) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(entries) else { return }
-        try? data.write(to: fileURL, options: .atomicWrite)
+        let data = try encoder.encode(entries)
+        try data.write(to: fileURL, options: .atomicWrite)
     }
 
     /// Exports entries to a shareable JSON file and returns its URL
-    func export(entries: [ExerciseEntry]) -> URL? {
+    public func export(entries: [ExerciseEntry]) -> URL? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         encoder.dateEncodingStrategy = .iso8601
