@@ -7,7 +7,7 @@ import TestConfiguration
 final class CompletePersistenceWorkflowTests: XCTestCase {
 
     private var temporaryDirectory: URL!
-    private var dataStore: DataStore!
+    private var dataStore: FileDataStore!
     private var viewModel: WorkoutViewModel!
 
     override func setUp() {
@@ -27,7 +27,7 @@ final class CompletePersistenceWorkflowTests: XCTestCase {
             XCTFail("Failed to create temporary directory: \(error)")
         }
 
-        dataStore = DataStore(baseDirectory: temporaryDirectory)
+        dataStore = FileDataStore(baseDirectory: temporaryDirectory)
         viewModel = WorkoutViewModel(dataStore: dataStore)
     }
 

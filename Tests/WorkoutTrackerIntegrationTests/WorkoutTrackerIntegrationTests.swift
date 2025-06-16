@@ -7,7 +7,7 @@ import Foundation
 final class WorkoutTrackerIntegrationTests: XCTestCase {
 
     var viewModel: WorkoutViewModel!
-    var testDataStore: DataStore!
+    var testDataStore: FileDataStore!
     var tempDirectory: URL!
 
     override func setUpWithError() throws {
@@ -18,7 +18,7 @@ final class WorkoutTrackerIntegrationTests: XCTestCase {
                                                 withIntermediateDirectories: true)
 
         // Create isolated DataStore for testing
-        testDataStore = DataStore(baseDirectory: tempDirectory)
+        testDataStore = FileDataStore(baseDirectory: tempDirectory)
 
         // Create ViewModel with test DataStore
         viewModel = WorkoutViewModel(dataStore: testDataStore)

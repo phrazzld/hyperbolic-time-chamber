@@ -6,7 +6,7 @@ import Combine
 final class WorkoutViewModelTests: XCTestCase {
 
     var viewModel: WorkoutViewModel!
-    var dataStore: DataStore!
+    var dataStore: FileDataStore!
     var tempDirectory: URL!
     var cancellables: Set<AnyCancellable>!
 
@@ -19,8 +19,8 @@ final class WorkoutViewModelTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
         try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
 
-        // Initialize test DataStore and ViewModel
-        dataStore = DataStore(baseDirectory: tempDirectory)
+        // Initialize test FileDataStore and ViewModel
+        dataStore = FileDataStore(baseDirectory: tempDirectory)
         viewModel = WorkoutViewModel(dataStore: dataStore)
     }
 

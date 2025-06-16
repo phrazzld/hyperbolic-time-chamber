@@ -10,7 +10,7 @@ final class ExtremeLoadStressTests: XCTestCase {
     let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
-    private var dataStore: DataStore!
+    private var dataStore: FileDataStore!
     private var viewModel: WorkoutViewModel!
 
     override func setUp() {
@@ -29,7 +29,7 @@ final class ExtremeLoadStressTests: XCTestCase {
             XCTFail("Failed to create temporary directory: \(error)")
         }
 
-        dataStore = DataStore(baseDirectory: temporaryDirectory)
+        dataStore = FileDataStore(baseDirectory: temporaryDirectory)
         viewModel = WorkoutViewModel(dataStore: dataStore)
     }
 

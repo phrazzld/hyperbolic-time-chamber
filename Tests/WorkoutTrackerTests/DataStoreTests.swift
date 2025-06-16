@@ -3,10 +3,10 @@ import XCTest
 import Foundation
 import TestConfiguration
 
-/// Comprehensive test suite for DataStore save/load operations and error handling
+/// Comprehensive test suite for FileDataStore save/load operations and error handling
 final class DataStoreTests: XCTestCase {
 
-    var dataStore: DataStore!
+    var dataStore: FileDataStore!
     var tempDirectory: URL!
 
     override func setUp() {
@@ -16,8 +16,8 @@ final class DataStoreTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
         try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
 
-        // Initialize DataStore with test directory
-        dataStore = DataStore(baseDirectory: tempDirectory)
+        // Initialize FileDataStore with test directory
+        dataStore = FileDataStore(baseDirectory: tempDirectory)
     }
 
     override func tearDown() {

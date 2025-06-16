@@ -1,13 +1,14 @@
 import Foundation
 
-/// Handles persistence of exercise entries to local storage
-public class DataStore: DataStoreProtocol {
-    private let fileName = "workout_entries.json"
+/// Handles persistence of exercise entries to local file storage
+public class FileDataStore: DataStoreProtocol {
+    private let fileName: String
     private let fileManager: FileManager
     private let baseDirectory: URL
 
-    public init(fileManager: FileManager = .default, baseDirectory: URL? = nil) {
+    public init(fileManager: FileManager = .default, baseDirectory: URL? = nil, fileName: String = "workout_entries.json") {
         self.fileManager = fileManager
+        self.fileName = fileName
         if let baseDirectory = baseDirectory {
             self.baseDirectory = baseDirectory
         } else {

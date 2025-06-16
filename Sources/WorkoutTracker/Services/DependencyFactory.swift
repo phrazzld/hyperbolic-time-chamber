@@ -43,7 +43,7 @@ public struct DependencyFactory {
         }
 
         // Use file-based store for production
-        return DataStore(
+        return FileDataStore(
             fileManager: configuration.fileManager,
             baseDirectory: configuration.baseDirectory
         )

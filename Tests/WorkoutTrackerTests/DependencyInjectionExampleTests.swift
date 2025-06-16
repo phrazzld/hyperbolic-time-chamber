@@ -144,7 +144,7 @@ final class DependencyInjectionExampleTests: XCTestCase {
         }
 
         // Create file-based store with custom directory
-        let fileStore = DataStore(baseDirectory: tempDir)
+        let fileStore = FileDataStore(baseDirectory: tempDir)
         let viewModel = WorkoutViewModel(dataStore: fileStore)
 
         // Add entry and verify it persists
