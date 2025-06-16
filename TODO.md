@@ -37,7 +37,7 @@
         3. Project compiles successfully
     - **Depends‑on:** [T001, T002]
 
-- [ ] **T004 · Refactor · P1**: Implement explicit error types for FileDataStore
+- [x] **T004 · Refactor · P1**: Implement explicit error types for FileDataStore
     - **Context:** Replace silent failures with proper error handling
     - **Action:**
         1. Define `DataStoreError` enum with cases: `saveFailed(underlyingError: Error)`, `loadFailed(underlyingError: Error)`, `exportFailed(reason: String)`
@@ -64,7 +64,7 @@
         3. Export functionality works identically to FileDataStore
     - **Depends‑on:** [T001, T002]
 
-- [ ] **T006 · Test · P1**: Add comprehensive unit tests for InMemoryDataStore
+- [x] **T006 · Test · P1**: Add comprehensive unit tests for InMemoryDataStore
     - **Context:** Verify test implementation reliability
     - **Action:**
         1. Create `InMemoryDataStoreTests.swift`
@@ -79,7 +79,7 @@
 
 ## Phase 4: Dependency Injection (90 minutes)
 
-- [ ] **T007 · Refactor · P0**: Update WorkoutViewModel for dependency injection
+- [x] **T007 · Refactor · P0**: Update WorkoutViewModel for dependency injection
     - **Context:** Enable environment-aware ViewModel construction
     - **Action:**
         1. Update `WorkoutViewModel` initializer to accept `DataStoreProtocol` parameter
@@ -91,7 +91,7 @@
         3. ViewModel can be constructed with any DataStoreProtocol implementation
     - **Depends‑on:** [T001]
 
-- [ ] **T008 · Feature · P0**: Create DependencyFactory for environment-aware dependency creation
+- [x] **T008 · Feature · P0**: Create DependencyFactory for environment-aware dependency creation
     - **Context:** Centralized dependency creation with environment detection
     - **Action:**
         1. Create `DependencyFactory.swift`
@@ -105,7 +105,7 @@
         3. Environment detection works correctly
     - **Depends‑on:** [T003, T005, T007]
 
-- [ ] **T009 · Refactor · P0**: Update WorkoutTrackerApp to use DependencyFactory
+- [x] **T009 · Refactor · P0**: Update WorkoutTrackerApp to use DependencyFactory
     - **Context:** Wire up dependency injection at app entry point
     - **Action:**
         1. Update `WorkoutTrackerApp.swift` to use `DependencyFactory.createViewModel()`
@@ -119,7 +119,7 @@
 
 ## Phase 5: Test Migration (60 minutes)
 
-- [ ] **T010 · Refactor · P0**: Refactor existing tests to use InMemoryDataStore
+- [x] **T010 · Refactor · P0**: Refactor existing tests to use InMemoryDataStore
     - **Context:** Eliminate file system dependencies from test suite
     - **Action:**
         1. Update `WorkoutViewModelTests.swift` to initialize ViewModel with InMemoryDataStore
@@ -132,7 +132,7 @@
         3. No file I/O operations in unit tests
     - **Depends‑on:** [T005, T007]
 
-- [ ] **T011 · Test · P1**: Add dependency injection tests for DependencyFactory
+- [x] **T011 · Test · P1**: Add dependency injection tests for DependencyFactory
     - **Context:** Verify factory configuration and environment detection
     - **Action:**
         1. Create `DependencyFactoryTests.swift`
@@ -147,7 +147,7 @@
 
 ## Observability & Future-Proofing (Optional Enhancements)
 
-- [ ] **T012 · Feature · P2**: Implement structured logging in FileDataStore
+- [x] **T012 · Feature · P2**: Implement structured logging in FileDataStore
     - **Context:** Enable production debugging and monitoring
     - **Action:**
         1. Add structured logging to all FileDataStore operations (load, save, export)
@@ -158,7 +158,7 @@
         2. All operations include relevant metadata
     - **Depends‑on:** [T004]
 
-- [ ] **T013 · Feature · P2**: Add correlation ID propagation through DataStore operations
+- [x] **T013 · Feature · P2**: Add correlation ID propagation through DataStore operations
     - **Context:** Enable request tracing across operations
     - **Action:**
         1. Update DataStoreProtocol methods to accept optional correlationID parameter
@@ -169,7 +169,7 @@
         2. Related operations can be traced using consistent ID
     - **Depends‑on:** [T012]
 
-- [ ] **T014 · Security · P2**: Implement security hardening for file operations
+- [x] **T014 · Security · P2**: Implement security hardening for file operations
     - **Context:** Prevent path traversal and permission issues
     - **Action:**
         1. Add input validation for configurable file names in FileDataStore
@@ -183,7 +183,7 @@
 
 ## Documentation & Knowledge Sharing
 
-- [ ] **T015 · Documentation · P2**: Document dependency injection patterns in DEVELOPMENT_GUIDE.md
+- [x] **T015 · Documentation · P2**: Document dependency injection patterns in DEVELOPMENT_GUIDE.md
     - **Context:** Enable team understanding and future development
     - **Action:**
         1. Add new section explaining DI pattern, DependencyFactory, and protocol-based testing
@@ -194,7 +194,7 @@
         2. Clear examples available for future dependency additions
     - **Depends‑on:** [T009, T011]
 
-- [ ] **T016 · Documentation · P3**: Update onboarding documentation with DI examples
+- [x] **T016 · Documentation · P3**: Update onboarding documentation with DI examples
     - **Context:** Smooth onboarding for new team members
     - **Action:**
         1. Review existing onboarding materials
@@ -205,25 +205,25 @@
         2. New developers can understand and work with DI patterns
     - **Depends‑on:** [T015]
 
-- [ ] **T017 · Planning · P3**: Create follow-up issue for app modularization
+- [x] **T017 · Planning · P3**: Create follow-up issue for app modularization
     - **Context:** Plan next phase building on DI foundation
     - **Action:**
         1. Create new issue titled "Plan App Modularization (Post-DI)"
         2. Reference this DI implementation as prerequisite
         3. Outline how DI enables clean module boundaries
     - **Done‑when:**
-        1. Issue #20 (or equivalent) created with appropriate context
+        1. Issue #32 created with appropriate context
         2. Clear connection established between DI and modularization
     - **Depends‑on:** [T009]
 
-- [ ] **T018 · Planning · P3**: Create follow-up issue for additional DataStore adapters
+- [x] **T018 · Planning · P3**: Create follow-up issue for additional DataStore adapters
     - **Context:** Plan future storage backend options
     - **Action:**
         1. Create new issue titled "Investigate Future DataStore Adapters"
         2. List potential adapters: CloudKit, Core Data, remote APIs
         3. Document how protocol-based design enables easy adapter addition
     - **Done‑when:**
-        1. New issue created with comprehensive adapter analysis
+        1. Issue #33 created with comprehensive adapter analysis
         2. Clear roadmap for storage backend expansion
     - **Depends‑on:** [T009]
 

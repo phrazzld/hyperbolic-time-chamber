@@ -34,8 +34,12 @@ final class DependencyInjectionExampleTests: XCTestCase {
             isScreenshotMode: false,
             isUITesting: false
         )
-        let prodStore = DependencyFactory.createDataStore(configuration: prodConfig)
-        XCTAssertTrue(prodStore is DataStore, "Production should use DataStore")
+        do {
+            let prodStore = try DependencyFactory.createDataStore(configuration: prodConfig)
+            XCTAssertTrue(prodStore is FileDataStore, "Production should use FileDataStore")
+        } catch {
+            XCTFail("Failed to create production data store: \(error)")
+        }
 
         // Test demo configuration
         let demoConfig = DependencyFactory.Configuration(
@@ -43,8 +47,12 @@ final class DependencyInjectionExampleTests: XCTestCase {
             isScreenshotMode: false,
             isUITesting: false
         )
-        let demoStore = DependencyFactory.createDataStore(configuration: demoConfig)
-        XCTAssertTrue(demoStore is InMemoryDataStore, "Demo mode should use InMemoryDataStore")
+        do {
+            let demoStore = try DependencyFactory.createDataStore(configuration: demoConfig)
+            XCTAssertTrue(demoStore is InMemoryDataStore, "Demo mode should use InMemoryDataStore")
+        } catch {
+            XCTFail("Failed to create demo data store: \(error)")
+        }
 
         // Test UI testing configuration
         let testConfig = DependencyFactory.Configuration(
@@ -52,8 +60,12 @@ final class DependencyInjectionExampleTests: XCTestCase {
             isScreenshotMode: false,
             isUITesting: true
         )
-        let testStore = DependencyFactory.createDataStore(configuration: testConfig)
-        XCTAssertTrue(testStore is InMemoryDataStore, "UI testing should use InMemoryDataStore")
+        do {
+            let testStore = try DependencyFactory.createDataStore(configuration: testConfig)
+            XCTAssertTrue(testStore is InMemoryDataStore, "UI testing should use InMemoryDataStore")
+        } catch {
+            XCTFail("Failed to create test data store: \(error)")
+        }
     }
 
     func testDependencyFactoryCreatesViewModelWithCorrectStore() {
@@ -63,7 +75,10 @@ final class DependencyInjectionExampleTests: XCTestCase {
             isScreenshotMode: false,
             isUITesting: false
         )
-        let viewModel = DependencyFactory.createViewModel(configuration: config)
+        guard let viewModel = try? DependencyFactory.createViewModel(configuration: config) else {
+            XCTFail("Failed to create view model with demo configuration")
+            return
+        }
 
         // The view model should be properly initialized
         XCTAssertNotNil(viewModel)
@@ -88,20 +103,26 @@ final class DependencyInjectionExampleTests: XCTestCase {
             var saveCallCount = 0
             var exportCallCount = 0
             var savedEntries: [ExerciseEntry] = []
+            var lastCorrelationId: String?
 
-            func load() -> [ExerciseEntry] {
+            func load(correlationId: String?) throws -> [ExerciseEntry] {
                 loadCallCount += 1
+                lastCorrelationId = correlationId
                 return []
             }
 
-            func save(entries: [ExerciseEntry]) {
+            func save(entries: [ExerciseEntry], correlationId: String?) throws {
                 saveCallCount += 1
                 savedEntries = entries
+                lastCorrelationId = correlationId
             }
 
-            func export(entries: [ExerciseEntry]) -> URL? {
+            func export(entries: [ExerciseEntry], correlationId: String?) throws -> URL {
                 exportCallCount += 1
-                return URL(string: "mock://export")
+                lastCorrelationId = correlationId
+                // Return a valid temporary file URL for testing
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("mock_export.json")
+                return tempURL
             }
         }
 
@@ -144,7 +165,10 @@ final class DependencyInjectionExampleTests: XCTestCase {
         }
 
         // Create file-based store with custom directory
-        let fileStore = FileDataStore(baseDirectory: tempDir)
+        guard let fileStore = try? FileDataStore(baseDirectory: tempDir) else {
+            XCTFail("Failed to create FileDataStore with temporary directory")
+            return
+        }
         let viewModel = WorkoutViewModel(dataStore: fileStore)
 
         // Add entry and verify it persists

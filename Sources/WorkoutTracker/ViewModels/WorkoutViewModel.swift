@@ -7,7 +7,13 @@ public class WorkoutViewModel: ObservableObject {
 
     public init(dataStore: DataStoreProtocol) {
         self.dataStore = dataStore
-        entries = dataStore.load()
+        do {
+            entries = try dataStore.load()
+        } catch {
+            // Log error and start with empty entries
+            NSLog("Failed to load entries during initialization: \(error)")
+            entries = []
+        }
     }
 
     /// Adds a new exercise entry and persists data
@@ -34,6 +40,12 @@ public class WorkoutViewModel: ObservableObject {
 
     /// Returns a URL for sharing the entries as JSON
     public func exportJSON() -> URL? {
-        dataStore.export(entries: entries)
+        do {
+            return try dataStore.export(entries: entries)
+        } catch {
+            // Log error and return nil for compatibility
+            NSLog("Failed to export entries: \(error)")
+            return nil
+        }
     }
 }

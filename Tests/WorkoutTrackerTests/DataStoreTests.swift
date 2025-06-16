@@ -17,7 +17,12 @@ final class DataStoreTests: XCTestCase {
         try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
 
         // Initialize FileDataStore with test directory
-        dataStore = FileDataStore(baseDirectory: tempDirectory)
+        do {
+            dataStore = try FileDataStore(baseDirectory: tempDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
     }
 
     override func tearDown() {
@@ -30,8 +35,12 @@ final class DataStoreTests: XCTestCase {
 
     func testLoadEmptyFile() {
         // Test loading when no data file exists
-        let entries = dataStore.load()
-        XCTAssertTrue(entries.isEmpty, "Should return empty array when no file exists")
+        do {
+            let entries = try dataStore.load()
+            XCTAssertTrue(entries.isEmpty, "Should return empty array when no file exists")
+        } catch {
+            XCTFail("Load should not throw error when no file exists: \(error)")
+        }
     }
 
     func testLoadInvalidJSON() {
@@ -40,35 +49,53 @@ final class DataStoreTests: XCTestCase {
         let testURL = tempDirectory.appendingPathComponent("workout_entries.json")
         try? invalidJSON.write(to: testURL, atomically: true, encoding: .utf8)
 
-        let entries = dataStore.load()
-        XCTAssertTrue(entries.isEmpty, "Should return empty array for invalid JSON")
+        XCTAssertThrowsError(try dataStore.load()) { error in
+            XCTAssertTrue(error is DataStoreError, "Should throw DataStoreError for invalid JSON")
+            if case DataStoreError.loadFailed(_) = error {
+                // Expected error type
+            } else {
+                XCTFail("Should throw loadFailed error")
+            }
+        }
     }
 
     func testLoadValidData() {
         // Test loading valid exercise entries
         let testEntries = createTestEntries()
-        dataStore.save(entries: testEntries)
+        try? dataStore.save(entries: testEntries)
 
-        let loadedEntries = dataStore.load()
-        XCTAssertEqual(loadedEntries.count, testEntries.count)
-        XCTAssertEqual(loadedEntries.first?.exerciseName, testEntries.first?.exerciseName)
-        XCTAssertEqual(loadedEntries.first?.sets.count, testEntries.first?.sets.count)
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertEqual(loadedEntries.count, testEntries.count)
+            XCTAssertEqual(loadedEntries.first?.exerciseName, testEntries.first?.exerciseName)
+            XCTAssertEqual(loadedEntries.first?.sets.count, testEntries.first?.sets.count)
+        } catch {
+            XCTFail("Load should not throw error: \(error)")
+        }
     }
 
     // MARK: - Save Tests
 
     func testSaveEmptyArray() {
         // Test saving empty array
-        dataStore.save(entries: [])
-        let loadedEntries = dataStore.load()
-        XCTAssertTrue(loadedEntries.isEmpty, "Should save and load empty array correctly")
+        try? dataStore.save(entries: [])
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertTrue(loadedEntries.isEmpty, "Should save and load empty array correctly")
+        } catch {
+            XCTFail("Load should not throw error: \(error)")
+        }
     }
 
     func testSaveAndLoadRoundTrip() {
         // Test complete save/load cycle with real data
         let testEntries = createTestEntries()
-        dataStore.save(entries: testEntries)
-        let loadedEntries = dataStore.load()
+        try? dataStore.save(entries: testEntries)
+
+        guard let loadedEntries = try? dataStore.load() else {
+            XCTFail("Load should not throw error")
+            return
+        }
 
         XCTAssertEqual(loadedEntries.count, testEntries.count)
 
@@ -93,8 +120,12 @@ final class DataStoreTests: XCTestCase {
             date: Date(),
             sets: [ExerciseSet(reps: 10, weight: nil)]
         )
-        dataStore.save(entries: [specialEntry])
-        let loadedEntries = dataStore.load()
+        try? dataStore.save(entries: [specialEntry])
+
+        guard let loadedEntries = try? dataStore.load() else {
+            XCTFail("Load should not throw error")
+            return
+        }
 
         XCTAssertEqual(loadedEntries.count, 1)
         XCTAssertEqual(loadedEntries.first?.exerciseName, "Push-ups & Pull-ups (30° incline)")
@@ -105,13 +136,13 @@ final class DataStoreTests: XCTestCase {
     func testExportValidData() {
         // Test exporting entries to a shareable file
         let testEntries = createTestEntries()
-        let exportURL = dataStore.export(entries: testEntries)
 
-        XCTAssertNotNil(exportURL, "Export should return a valid URL")
-        guard let exportURL = exportURL else {
-            XCTFail("Export URL is nil")
+        guard let exportURL = try? dataStore.export(entries: testEntries) else {
+            XCTFail("Export should not throw error")
             return
         }
+
+        // exportURL is guaranteed to be valid since export() throws on failure
         XCTAssertTrue(FileManager.default.fileExists(atPath: exportURL.path))
 
         // Verify exported data can be read back
@@ -122,21 +153,21 @@ final class DataStoreTests: XCTestCase {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let exportedEntries = try? decoder.decode([ExerciseEntry].self, from: exportedData)
+        guard let exportedEntries = try? decoder.decode([ExerciseEntry].self, from: exportedData) else {
+            XCTFail("Could not decode exported data")
+            return
+        }
 
-        XCTAssertNotNil(exportedEntries)
-        XCTAssertEqual(exportedEntries?.count, testEntries.count)
+        XCTAssertEqual(exportedEntries.count, testEntries.count)
     }
 
     func testExportEmptyArray() {
         // Test exporting empty array
-        let exportURL = dataStore.export(entries: [])
-        XCTAssertNotNil(exportURL, "Should be able to export empty array")
-
-        guard let exportURL = exportURL else {
-            XCTFail("Export URL is nil")
+        guard let exportURL = try? dataStore.export(entries: []) else {
+            XCTFail("Export should not throw error")
             return
         }
+        // exportURL is guaranteed to be valid since export() throws on failure
 
         guard let exportedData = try? Data(contentsOf: exportURL) else {
             XCTFail("Could not read exported file")
@@ -144,9 +175,11 @@ final class DataStoreTests: XCTestCase {
         }
 
         let decoder = JSONDecoder()
-        let exportedEntries = try? decoder.decode([ExerciseEntry].self, from: exportedData)
-        XCTAssertNotNil(exportedEntries)
-        XCTAssertTrue(exportedEntries?.isEmpty == true)
+        guard let exportedEntries = try? decoder.decode([ExerciseEntry].self, from: exportedData) else {
+            XCTFail("Could not decode exported data")
+            return
+        }
+        XCTAssertTrue(exportedEntries.isEmpty)
     }
 
     // MARK: - Date Encoding/Decoding Tests
@@ -160,8 +193,12 @@ final class DataStoreTests: XCTestCase {
             sets: [ExerciseSet(reps: 1, weight: nil)]
         )
 
-        dataStore.save(entries: [entry])
-        let loadedEntries = dataStore.load()
+        try? dataStore.save(entries: [entry])
+
+        guard let loadedEntries = try? dataStore.load() else {
+            XCTFail("Load should not throw error")
+            return
+        }
 
         XCTAssertEqual(loadedEntries.count, 1)
         guard let firstEntry = loadedEntries.first else {

@@ -10,7 +10,7 @@ final class QuickDatasetPerformanceTests: XCTestCase {
     let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
-    private var dataStore: FileDataStore!
+    private var dataStore: DataStoreProtocol!
     private var viewModel: WorkoutViewModel!
 
     override func setUp() {
@@ -18,7 +18,7 @@ final class QuickDatasetPerformanceTests: XCTestCase {
 
         // Use in-memory storage for CI optimization
         if config.useInMemoryStorage {
-            dataStore = InMemoryDataStore()
+            dataStore = WorkoutTracker.InMemoryDataStore()
             temporaryDirectory = URL(fileURLWithPath: "/tmp/ci-mock")
         } else {
             temporaryDirectory = FileManager.default.temporaryDirectory
@@ -34,7 +34,12 @@ final class QuickDatasetPerformanceTests: XCTestCase {
                 XCTFail("Failed to create temporary directory: \(error)")
             }
 
-            dataStore = FileDataStore(baseDirectory: temporaryDirectory)
+            do {
+                dataStore = try FileDataStore(baseDirectory: temporaryDirectory)
+            } catch {
+                XCTFail("Failed to create FileDataStore: \(error)")
+                return
+            }
         }
 
         viewModel = WorkoutViewModel(dataStore: dataStore)
@@ -93,28 +98,5 @@ final class QuickDatasetPerformanceTests: XCTestCase {
             count: count,
             baseDate: Date(timeIntervalSince1970: 1000000)
         )
-    }
-}
-
-// MARK: - In-Memory DataStore for CI Optimization
-
-private class InMemoryDataStore: DataStore {
-    private var inMemoryEntries: [ExerciseEntry] = []
-
-    override init(fileManager: FileManager = .default, baseDirectory: URL? = nil) {
-        super.init(fileManager: fileManager, baseDirectory: baseDirectory)
-    }
-
-    override func load() -> [ExerciseEntry] {
-        inMemoryEntries
-    }
-
-    override func save(entries: [ExerciseEntry]) {
-        inMemoryEntries = entries
-    }
-
-    override func export(entries: [ExerciseEntry]) -> URL? {
-        // Mock export for CI testing
-        URL(fileURLWithPath: "/tmp/mock_export.json")
     }
 }

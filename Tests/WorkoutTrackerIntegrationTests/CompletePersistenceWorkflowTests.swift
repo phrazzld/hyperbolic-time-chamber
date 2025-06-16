@@ -27,7 +27,12 @@ final class CompletePersistenceWorkflowTests: XCTestCase {
             XCTFail("Failed to create temporary directory: \(error)")
         }
 
-        dataStore = FileDataStore(baseDirectory: temporaryDirectory)
+        do {
+            dataStore = try FileDataStore(baseDirectory: temporaryDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
         viewModel = WorkoutViewModel(dataStore: dataStore)
     }
 

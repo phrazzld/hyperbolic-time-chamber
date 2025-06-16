@@ -10,7 +10,7 @@ final class QuickPersistencePerformanceTests: XCTestCase {
     let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
-    private var dataStore: FileDataStore!
+    private var dataStore: DataStoreProtocol!
     private var viewModel: WorkoutViewModel!
 
     override func setUp() {
@@ -18,7 +18,7 @@ final class QuickPersistencePerformanceTests: XCTestCase {
 
         // Use in-memory storage for CI optimization
         if config.useInMemoryStorage {
-            dataStore = InMemoryDataStore()
+            dataStore = WorkoutTracker.InMemoryDataStore()
             temporaryDirectory = URL(fileURLWithPath: "/tmp/ci-mock")
         } else {
             temporaryDirectory = FileManager.default.temporaryDirectory
@@ -34,7 +34,12 @@ final class QuickPersistencePerformanceTests: XCTestCase {
                 XCTFail("Failed to create temporary directory: \(error)")
             }
 
-            dataStore = FileDataStore(baseDirectory: temporaryDirectory)
+            do {
+                dataStore = try FileDataStore(baseDirectory: temporaryDirectory)
+            } catch {
+                XCTFail("Failed to create FileDataStore: \(error)")
+                return
+            }
         }
 
         viewModel = WorkoutViewModel(dataStore: dataStore)
@@ -175,35 +180,5 @@ final class QuickPersistencePerformanceTests: XCTestCase {
                 sets: [ExerciseSet(reps: 10, weight: index % 2 == 0 ? nil : 50.0)]
             )
         }
-    }
-}
-
-// MARK: - In-Memory DataStore for CI Optimization
-
-private class InMemoryDataStore: DataStore {
-    private var inMemoryEntries: [ExerciseEntry] = []
-    private var lastExportData: Data?
-
-    override init(fileManager: FileManager = .default, baseDirectory: URL? = nil) {
-        super.init(fileManager: fileManager, baseDirectory: baseDirectory)
-    }
-
-    override func load() -> [ExerciseEntry] {
-        inMemoryEntries
-    }
-
-    override func save(entries: [ExerciseEntry]) {
-        inMemoryEntries = entries
-    }
-
-    override func export(entries: [ExerciseEntry]) -> URL? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        encoder.dateEncodingStrategy = .iso8601
-
-        guard let data = try? encoder.encode(entries) else { return nil }
-        lastExportData = data
-
-        return URL(fileURLWithPath: "/tmp/mock_export.json")
     }
 }

@@ -19,7 +19,12 @@ final class AddWorkoutEntryFlowTests: XCTestCase {
                                                 withIntermediateDirectories: true)
 
         // Create isolated DataStore for testing
-        testDataStore = FileDataStore(baseDirectory: tempDirectory)
+        do {
+            testDataStore = try FileDataStore(baseDirectory: tempDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
 
         // Create ViewModel with test DataStore
         viewModel = WorkoutViewModel(dataStore: testDataStore)

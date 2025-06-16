@@ -36,22 +36,22 @@ public struct DependencyFactory {
     }
 
     /// Creates a data store based on the provided configuration
-    public static func createDataStore(configuration: Configuration) -> DataStoreProtocol {
+    public static func createDataStore(configuration: Configuration) throws -> DataStoreProtocol {
         // Use in-memory store for demo/testing scenarios
         if configuration.isDemo || configuration.isScreenshotMode || configuration.isUITesting {
             return InMemoryDataStore()
         }
 
         // Use file-based store for production
-        return FileDataStore(
+        return try FileDataStore(
             fileManager: configuration.fileManager,
             baseDirectory: configuration.baseDirectory
         )
     }
 
     /// Creates a view model with the appropriate data store
-    public static func createViewModel(configuration: Configuration = .fromEnvironment) -> WorkoutViewModel {
-        let dataStore = createDataStore(configuration: configuration)
+    public static func createViewModel(configuration: Configuration = .fromEnvironment) throws -> WorkoutViewModel {
+        let dataStore = try createDataStore(configuration: configuration)
         return WorkoutViewModel(dataStore: dataStore)
     }
 

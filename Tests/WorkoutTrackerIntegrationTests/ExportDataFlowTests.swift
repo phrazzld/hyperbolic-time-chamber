@@ -15,7 +15,12 @@ final class ExportDataFlowTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: tempDirectory,
                                                 withIntermediateDirectories: true)
-        testDataStore = FileDataStore(baseDirectory: tempDirectory)
+        do {
+            testDataStore = try FileDataStore(baseDirectory: tempDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
         viewModel = WorkoutViewModel(dataStore: testDataStore)
     }
 
