@@ -51,7 +51,7 @@
 
 ## Phase 3: Test Infrastructure (45 minutes)
 
-- [ ] **T005 · Feature · P0**: Implement InMemoryDataStore for testing
+- [x] **T005 · Feature · P0**: Implement InMemoryDataStore for testing
     - **Context:** Fast, reliable testing without file system dependencies
     - **Action:**
         1. Create `InMemoryDataStore.swift` implementing `DataStoreProtocol`
