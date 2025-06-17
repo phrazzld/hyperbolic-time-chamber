@@ -131,7 +131,7 @@ jobs:
 
       - name: Comment Coverage Summary on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -219,7 +219,7 @@ jobs:
 
       - name: Comment Security Summary on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -315,7 +315,7 @@ jobs:
 
       - name: Comment Complexity Summary on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -389,7 +389,7 @@ jobs:
 
       - name: Comment Documentation Link on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -464,7 +464,7 @@ jobs:
 
       - name: Comment Spelling Summary on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -604,7 +604,7 @@ jobs:
 
       - name: Comment Screenshot Summary on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
