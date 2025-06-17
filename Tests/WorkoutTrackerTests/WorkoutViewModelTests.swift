@@ -6,27 +6,20 @@ import Combine
 final class WorkoutViewModelTests: XCTestCase {
 
     var viewModel: WorkoutViewModel!
-    var dataStore: DataStore!
-    var tempDirectory: URL!
+    var dataStore: DataStoreProtocol!
     var cancellables: Set<AnyCancellable>!
 
     override func setUp() {
         super.setUp()
         cancellables = Set<AnyCancellable>()
 
-        // Create isolated test environment
-        tempDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-        try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
-
-        // Initialize test DataStore and ViewModel
-        dataStore = DataStore(baseDirectory: tempDirectory)
+        // Use in-memory data store for fast, isolated tests
+        dataStore = InMemoryDataStore()
         viewModel = WorkoutViewModel(dataStore: dataStore)
     }
 
     override func tearDown() {
         cancellables.removeAll()
-        try? FileManager.default.removeItem(at: tempDirectory)
         super.tearDown()
     }
 
@@ -40,7 +33,7 @@ final class WorkoutViewModelTests: XCTestCase {
     func testInitWithExistingData() {
         // Test ViewModel loads existing data from DataStore
         let testEntries = createTestEntries()
-        dataStore.save(entries: testEntries)
+        try? dataStore.save(entries: testEntries)
 
         // Create new ViewModel instance to test loading
         let newViewModel = WorkoutViewModel(dataStore: dataStore)
@@ -62,9 +55,13 @@ final class WorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.entries.last?.exerciseName, "Test Exercise")
 
         // Verify persistence by loading from DataStore
-        let loadedEntries = dataStore.load()
-        XCTAssertEqual(loadedEntries.count, initialCount + 1)
-        XCTAssertEqual(loadedEntries.last?.exerciseName, "Test Exercise")
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertEqual(loadedEntries.count, initialCount + 1)
+            XCTAssertEqual(loadedEntries.last?.exerciseName, "Test Exercise")
+        } catch {
+            XCTFail("Failed to load entries: \(error)")
+        }
     }
 
     func testAddMultipleEntries() {
@@ -83,8 +80,12 @@ final class WorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.entries[2].exerciseName, "Exercise 3")
 
         // Verify all entries are persisted
-        let loadedEntries = dataStore.load()
-        XCTAssertEqual(loadedEntries.count, 3)
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertEqual(loadedEntries.count, 3)
+        } catch {
+            XCTFail("Failed to load entries: \(error)")
+        }
     }
 
     func testAddEntryTriggersPublishedUpdate() {
@@ -129,8 +130,12 @@ final class WorkoutViewModelTests: XCTestCase {
         XCTAssertNotEqual(viewModel.entries.first?.exerciseName, deletedEntryName)
 
         // Verify persistence
-        let loadedEntries = dataStore.load()
-        XCTAssertEqual(loadedEntries.count, initialCount - 1)
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertEqual(loadedEntries.count, initialCount - 1)
+        } catch {
+            XCTFail("Failed to load entries: \(error)")
+        }
     }
 
     func testDeleteMultipleEntries() {
@@ -148,8 +153,12 @@ final class WorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.entries.count, initialCount - 2)
 
         // Verify persistence
-        let loadedEntries = dataStore.load()
-        XCTAssertEqual(loadedEntries.count, initialCount - 2)
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertEqual(loadedEntries.count, initialCount - 2)
+        } catch {
+            XCTFail("Failed to load entries: \(error)")
+        }
     }
 
     func testDeleteAllEntries() {
@@ -163,8 +172,12 @@ final class WorkoutViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.entries.isEmpty)
 
         // Verify persistence
-        let loadedEntries = dataStore.load()
-        XCTAssertTrue(loadedEntries.isEmpty)
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertTrue(loadedEntries.isEmpty)
+        } catch {
+            XCTFail("Failed to load entries: \(error)")
+        }
     }
 
     func testDeleteEntryTriggersPublishedUpdate() {
@@ -204,15 +217,23 @@ final class WorkoutViewModelTests: XCTestCase {
         viewModel.entries.append(contentsOf: entries)
 
         // Verify not yet persisted
-        let loadedBefore = dataStore.load()
-        XCTAssertNotEqual(loadedBefore.count, entries.count)
+        do {
+            let loadedBefore = try dataStore.load()
+            XCTAssertNotEqual(loadedBefore.count, entries.count)
+        } catch {
+            XCTFail("Failed to load data before save: \(error)")
+        }
 
         // Manual save
         viewModel.save()
 
         // Verify now persisted
-        let loadedAfter = dataStore.load()
-        XCTAssertEqual(loadedAfter.count, entries.count)
+        do {
+            let loadedAfter = try dataStore.load()
+            XCTAssertEqual(loadedAfter.count, entries.count)
+        } catch {
+            XCTFail("Failed to load data after save: \(error)")
+        }
     }
 
     // MARK: - Export Operation Tests
@@ -293,12 +314,16 @@ final class WorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.entries.count, 3)
 
         // Verify persistence matches state
-        let loadedEntries = dataStore.load()
-        XCTAssertEqual(loadedEntries.count, viewModel.entries.count)
+        do {
+            let loadedEntries = try dataStore.load()
+            XCTAssertEqual(loadedEntries.count, viewModel.entries.count)
 
-        for (viewModelEntry, loadedEntry) in zip(viewModel.entries, loadedEntries) {
-            XCTAssertEqual(viewModelEntry.exerciseName, loadedEntry.exerciseName)
-            XCTAssertEqual(viewModelEntry.sets.count, loadedEntry.sets.count)
+            for (viewModelEntry, loadedEntry) in zip(viewModel.entries, loadedEntries) {
+                XCTAssertEqual(viewModelEntry.exerciseName, loadedEntry.exerciseName)
+                XCTAssertEqual(viewModelEntry.sets.count, loadedEntry.sets.count)
+            }
+        } catch {
+            XCTFail("Failed to load entries for state consistency check: \(error)")
         }
     }
 

@@ -8,7 +8,7 @@ import Combine
 final class HistoryDeleteFlowTests: XCTestCase {
 
     var viewModel: WorkoutViewModel!
-    var testDataStore: DataStore!
+    var testDataStore: FileDataStore!
     var tempDirectory: URL!
 
     override func setUpWithError() throws {
@@ -19,7 +19,12 @@ final class HistoryDeleteFlowTests: XCTestCase {
                                                 withIntermediateDirectories: true)
 
         // Create isolated DataStore for testing
-        testDataStore = DataStore(baseDirectory: tempDirectory)
+        do {
+            testDataStore = try FileDataStore(baseDirectory: tempDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
 
         // Create ViewModel with test DataStore
         viewModel = WorkoutViewModel(dataStore: testDataStore)
@@ -352,7 +357,6 @@ final class HistoryDeleteFlowTests: XCTestCase {
     }
 
     // MARK: - Helper Methods
-
     private func createSampleWorkoutEntries() -> [ExerciseEntry] {
         let baseDate = Date()
         guard let mondayDate = Calendar.current.date(byAdding: .day, value: -6, to: baseDate),
@@ -376,17 +380,14 @@ final class HistoryDeleteFlowTests: XCTestCase {
             ])
         ]
     }
-
     private func createLargerWorkoutHistory() -> [ExerciseEntry] {
         let baseDate = Date()
         var entries: [ExerciseEntry] = []
-
         for index in 0..<5 {
             guard let entryDate = Calendar.current.date(byAdding: .day, value: -index, to: baseDate),
                   let unicodeScalar = UnicodeScalar(65 + index) else {
                 continue
             }
-
             let entry = ExerciseEntry(
                 exerciseName: "Workout \(Character(unicodeScalar))",
                 date: entryDate,
@@ -394,7 +395,6 @@ final class HistoryDeleteFlowTests: XCTestCase {
             )
             entries.append(entry)
         }
-
         return entries
     }
 }

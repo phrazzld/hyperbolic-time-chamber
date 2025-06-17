@@ -1,34 +1,51 @@
 import Foundation
 
 /// ViewModel for managing workout entries and persistence
-class WorkoutViewModel: ObservableObject {
-    @Published var entries: [ExerciseEntry] = []
-    private let dataStore: DataStore
+public class WorkoutViewModel: ObservableObject {
+    @Published public var entries: [ExerciseEntry] = []
+    private let dataStore: DataStoreProtocol
 
-    init(dataStore: DataStore = DataStore()) {
+    public init(dataStore: DataStoreProtocol) {
         self.dataStore = dataStore
-        entries = dataStore.load()
+        do {
+            entries = try dataStore.load()
+        } catch {
+            // Log error and start with empty entries
+            NSLog("Failed to load entries during initialization: \(error)")
+            entries = []
+        }
     }
 
     /// Adds a new exercise entry and persists data
-    func addEntry(_ entry: ExerciseEntry) {
+    public func addEntry(_ entry: ExerciseEntry) {
         entries.append(entry)
         save()
     }
 
     /// Deletes entries at specified offsets and persists data
-    func deleteEntry(at offsets: IndexSet) {
+    public func deleteEntry(at offsets: IndexSet) {
         entries.remove(atOffsets: offsets)
         save()
     }
 
     /// Persists current entries to disk
-    func save() {
-        dataStore.save(entries: entries)
+    public func save() {
+        do {
+            try dataStore.save(entries: entries)
+        } catch {
+            // TODO: Proper error handling will be implemented in T004
+            NSLog("Failed to save entries: \(error)")
+        }
     }
 
     /// Returns a URL for sharing the entries as JSON
-    func exportJSON() -> URL? {
-        dataStore.export(entries: entries)
+    public func exportJSON() -> URL? {
+        do {
+            return try dataStore.export(entries: entries)
+        } catch {
+            // Log error and return nil for compatibility
+            NSLog("Failed to export entries: \(error)")
+            return nil
+        }
     }
 }

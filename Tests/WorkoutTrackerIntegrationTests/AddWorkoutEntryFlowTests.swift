@@ -8,7 +8,7 @@ import Combine
 final class AddWorkoutEntryFlowTests: XCTestCase {
 
     var viewModel: WorkoutViewModel!
-    var testDataStore: DataStore!
+    var testDataStore: FileDataStore!
     var tempDirectory: URL!
 
     override func setUpWithError() throws {
@@ -19,7 +19,12 @@ final class AddWorkoutEntryFlowTests: XCTestCase {
                                                 withIntermediateDirectories: true)
 
         // Create isolated DataStore for testing
-        testDataStore = DataStore(baseDirectory: tempDirectory)
+        do {
+            testDataStore = try FileDataStore(baseDirectory: tempDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
 
         // Create ViewModel with test DataStore
         viewModel = WorkoutViewModel(dataStore: testDataStore)

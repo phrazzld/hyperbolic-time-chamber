@@ -10,7 +10,7 @@ final class QuickViewModelPerformanceTests: XCTestCase {
     let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
-    private var dataStore: DataStore!
+    private var dataStore: DataStoreProtocol!
     private var viewModel: WorkoutViewModel!
 
     override func setUp() {
@@ -18,7 +18,7 @@ final class QuickViewModelPerformanceTests: XCTestCase {
 
         // Use in-memory storage for CI optimization
         if config.useInMemoryStorage {
-            dataStore = InMemoryDataStore()
+            dataStore = WorkoutTracker.InMemoryDataStore()
             temporaryDirectory = URL(fileURLWithPath: "/tmp/ci-mock")
         } else {
             temporaryDirectory = FileManager.default.temporaryDirectory
@@ -34,7 +34,12 @@ final class QuickViewModelPerformanceTests: XCTestCase {
                 XCTFail("Failed to create temporary directory: \(error)")
             }
 
-            dataStore = DataStore(baseDirectory: temporaryDirectory)
+            do {
+                dataStore = try FileDataStore(baseDirectory: temporaryDirectory)
+            } catch {
+                XCTFail("Failed to create FileDataStore: \(error)")
+                return
+            }
         }
 
         viewModel = WorkoutViewModel(dataStore: dataStore)
@@ -160,27 +165,5 @@ final class QuickViewModelPerformanceTests: XCTestCase {
                 sets: [ExerciseSet(reps: 10, weight: index % 2 == 0 ? nil : 50.0)]
             )
         }
-    }
-}
-
-// MARK: - In-Memory DataStore for CI Optimization
-
-private class InMemoryDataStore: DataStore {
-    private var inMemoryEntries: [ExerciseEntry] = []
-
-    override init(fileManager: FileManager = .default, baseDirectory: URL? = nil) {
-        super.init(fileManager: fileManager, baseDirectory: baseDirectory)
-    }
-
-    override func load() -> [ExerciseEntry] {
-        inMemoryEntries
-    }
-
-    override func save(entries: [ExerciseEntry]) {
-        inMemoryEntries = entries
-    }
-
-    override func export(entries: [ExerciseEntry]) -> URL? {
-        URL(fileURLWithPath: "/tmp/mock_export.json")
     }
 }

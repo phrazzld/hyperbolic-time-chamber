@@ -10,7 +10,7 @@ final class DatasetScalabilityTests: XCTestCase {
     let config = TestConfiguration.shared
 
     private var temporaryDirectory: URL!
-    private var dataStore: DataStore!
+    private var dataStore: FileDataStore!
     private var viewModel: WorkoutViewModel!
 
     override func setUp() {
@@ -30,7 +30,12 @@ final class DatasetScalabilityTests: XCTestCase {
             XCTFail("Failed to create temporary directory: \(error)")
         }
 
-        dataStore = DataStore(baseDirectory: temporaryDirectory)
+        do {
+            dataStore = try FileDataStore(baseDirectory: temporaryDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
         viewModel = WorkoutViewModel(dataStore: dataStore)
     }
 

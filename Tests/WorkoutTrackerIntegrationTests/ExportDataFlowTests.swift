@@ -7,7 +7,7 @@ import Combine
 final class ExportDataFlowTests: XCTestCase {
 
     var viewModel: WorkoutViewModel!
-    var testDataStore: DataStore!
+    var testDataStore: FileDataStore!
     var tempDirectory: URL!
 
     override func setUpWithError() throws {
@@ -15,7 +15,12 @@ final class ExportDataFlowTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: tempDirectory,
                                                 withIntermediateDirectories: true)
-        testDataStore = DataStore(baseDirectory: tempDirectory)
+        do {
+            testDataStore = try FileDataStore(baseDirectory: tempDirectory)
+        } catch {
+            XCTFail("Failed to create FileDataStore: \(error)")
+            return
+        }
         viewModel = WorkoutViewModel(dataStore: testDataStore)
     }
 
