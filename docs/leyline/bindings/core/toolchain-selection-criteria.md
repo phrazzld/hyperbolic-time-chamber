@@ -3,7 +3,7 @@ derived_from: simplicity
 enforced_by: architecture review & decision documentation
 id: toolchain-selection-criteria
 last_modified: '2025-06-14'
-version: '0.1.0'
+version: '0.2.0'
 ---
 # Binding: Evaluate Tools Through Total Cost of Ownership
 
@@ -97,7 +97,7 @@ Even in exceptions, document the decision and schedule future review.
 
 ## Related Bindings
 
-- [dependency-management](./dependency-management.md): Shares similar evaluation principles for libraries and frameworks
-- [continuous-learning-investment](./continuous-learning-investment.md): Team expertise development supports tool adoption
+- [dependency-management](../../docs/bindings/categories/python/dependency-management.md): Shares similar evaluation principles for libraries and frameworks
+- [continuous-learning-investment](../../docs/bindings/core/continuous-learning-investment.md): Team expertise development supports tool adoption
 - [document-decisions](../../tenets/document-decisions.md): Formal documentation of tool choices
-- [yagni-pattern-enforcement](./yagni-pattern-enforcement.md): Avoid adopting tools for imagined future needs
+- [yagni-pattern-enforcement](../../docs/bindings/core/yagni-pattern-enforcement.md): Avoid adopting tools for imagined future needs
