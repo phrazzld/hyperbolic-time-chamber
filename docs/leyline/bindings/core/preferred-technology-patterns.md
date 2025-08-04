@@ -3,7 +3,7 @@ derived_from: simplicity
 enforced_by: architecture review & code review
 id: preferred-technology-patterns
 last_modified: '2025-06-14'
-version: '0.1.0'
+version: '0.2.0'
 ---
 # Binding: Choose Boring Technology by Default
 
@@ -76,7 +76,7 @@ Even with exceptions, limit the scope and have migration plans.
 
 ## Related Bindings
 
-- [toolchain-selection-criteria](./toolchain-selection-criteria.md): Provides the evaluation framework for comparing options
-- [yagni-pattern-enforcement](./yagni-pattern-enforcement.md): Prevents adopting technology for imagined benefits
-- [continuous-learning-investment](./continuous-learning-investment.md): Balances stability preference with staying current
-- [dependency-management](./dependency-management.md): Similar principles for library selection
+- [toolchain-selection-criteria](../../docs/bindings/core/toolchain-selection-criteria.md): Provides the evaluation framework for comparing options
+- [yagni-pattern-enforcement](../../docs/bindings/core/yagni-pattern-enforcement.md): Prevents adopting technology for imagined benefits
+- [continuous-learning-investment](../../docs/bindings/core/continuous-learning-investment.md): Balances stability preference with staying current
+- [dependency-management](../../docs/bindings/categories/python/dependency-management.md): Similar principles for library selection
