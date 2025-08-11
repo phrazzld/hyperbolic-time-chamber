@@ -28,7 +28,7 @@ jobs:
       version_changed: ${{ steps.check-version.outputs.version_changed }}
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
     
@@ -80,7 +80,7 @@ jobs:
     if: needs.analyze-version.outputs.should_release == 'true'
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -152,7 +152,7 @@ jobs:
       (github.event_name == 'push' || github.event.inputs.deploy_testflight == 'true')
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         ref: main  # Use latest main with version updates
     
